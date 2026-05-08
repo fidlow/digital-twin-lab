@@ -372,7 +372,7 @@ export default function FTIDigitalTwinPrototype() {
                   <path d="M3 7V3h4M21 7V3h-4M3 17v4h4M21 17v4h-4" />
                 )}
               </svg>
-              {kiosk ? "Выйти из киоска" : "Полный экран"}
+              {kiosk ? "Выйти из полноэкранного режима" : "Полный экран"}
             </button>
           </div>
           <h1 className="text-3xl font-semibold sm:text-5xl">Цифровой двойник лабораторной установки</h1>
