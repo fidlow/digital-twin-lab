@@ -1,8 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  CONTROL_LIMITS,
+  DEFAULT_CONTROLS,
   DT,
+  FORECAST_STEPS,
   FORMULAS,
   H,
+  HISTORY_FRACTION,
+  IDLE_RESET_MS,
   LIMITS,
   N,
   PAD,
@@ -13,6 +18,8 @@ import {
   build,
   clamp,
   evidence,
+  forecast,
+  fx,
   hoverUnit,
   hoverValue,
   point,
@@ -22,7 +29,9 @@ import {
   sx,
   sy,
   type ChartDataPoint,
+  type Controls,
   type DataPoint,
+  type ForecastPoint,
   type ModeKey,
   type RiskLevel,
   type SeriesItem,
@@ -36,11 +45,18 @@ declare global {
 
 interface ChartProps {
   rows: ChartDataPoint[];
+  fc: ForecastPoint[];
   running: boolean;
   last: number;
 }
 
-function Chart({ rows, running, last }: ChartProps) {
+const FORECAST_KEYS = ["t", "pChart"] as const;
+const FORECAST_META: Record<(typeof FORECAST_KEYS)[number], { color: string; domain: number[]; width: number }> = {
+  t: { color: SERIES.find((s) => s[0] === "t")![2], domain: SERIES.find((s) => s[0] === "t")![3], width: 2.4 },
+  pChart: { color: SERIES.find((s) => s[0] === "pChart")![2], domain: SERIES.find((s) => s[0] === "pChart")![3], width: 2 },
+};
+
+function Chart({ rows, fc, running, last }: ChartProps) {
   const ref = useRef<SVGSVGElement>(null);
   const [now, setNow] = useState(Date.now());
   const [hover, setHover] = useState<number | null>(null);
@@ -60,17 +76,51 @@ function Chart({ rows, running, last }: ChartProps) {
   const phase = clamp((now - last) / DT, 0, 1);
   const pw = W - PAD.l - PAD.r;
   const ph = H - PAD.t - PAD.b;
-  const x = (idx: number) => PAD.l + sx(idx, data.length, phase, pw);
+  const pwH = pw * HISTORY_FRACTION;
+  const pwF = pw - pwH;
+  const nowX = PAD.l + pwH;
+  const x = (idx: number) => PAD.l + sx(idx, data.length, phase, pwH);
+  const xFc = (step: number) => PAD.l + fx(step, phase, pwH, pwF);
   const y = (val: number, domain: number[]) => PAD.t + sy(val, domain, ph);
   const path = (series: SeriesItem): string =>
     data.map((row, idx) => `${idx ? "L" : "M"}${x(idx).toFixed(1)},${y(row[series[0] as keyof ChartDataPoint] as number, series[3]).toFixed(1)}`).join(" ");
+
+  const lastIdx = data.length - 1;
+  const lastRow = data[lastIdx];
+  const bandKey = { t: "tBand", pChart: "pChartBand" } as const;
+  const forecastPath = (key: (typeof FORECAST_KEYS)[number]): string => {
+    if (!fc.length || !lastRow) return "";
+    const domain = FORECAST_META[key].domain;
+    const segments = [`M${x(lastIdx).toFixed(1)},${y(lastRow[key] as number, domain).toFixed(1)}`];
+    for (const fp of fc) {
+      segments.push(`L${xFc(fp.step).toFixed(1)},${y(fp[key], domain).toFixed(1)}`);
+    }
+    return segments.join(" ");
+  };
+  const bandPath = (key: (typeof FORECAST_KEYS)[number]): string => {
+    if (!fc.length || !lastRow) return "";
+    const domain = FORECAST_META[key].domain;
+    const bk = bandKey[key];
+    const startX = x(lastIdx).toFixed(1);
+    const startY = y(lastRow[key] as number, domain).toFixed(1);
+    const upper = fc.map((fp) => `L${xFc(fp.step).toFixed(1)},${y(fp[key] + fp[bk], domain).toFixed(1)}`);
+    const lower = fc
+      .slice()
+      .reverse()
+      .map((fp) => `L${xFc(fp.step).toFixed(1)},${y(fp[key] - fp[bk], domain).toFixed(1)}`);
+    return [`M${startX},${startY}`, ...upper, ...lower, "Z"].join(" ");
+  };
 
   function move(event: React.MouseEvent<SVGSVGElement>) {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const xx = ((event.clientX - rect.left) / Math.max(rect.width, 1)) * W;
-    const step = pw / (N - 1);
-    setHover(clamp(Math.round(data.length - 1 + phase - (PAD.l + pw - xx) / step), 0, data.length - 1));
+    if (xx > nowX || xx < PAD.l) {
+      setHover(null);
+      return;
+    }
+    const step = pwH / (N - 1);
+    setHover(clamp(Math.round(data.length - 1 + phase - (nowX - xx) / step), 0, data.length - 1));
   }
 
   const h = hover == null ? null : data[hover];
@@ -92,17 +142,30 @@ function Chart({ rows, running, last }: ChartProps) {
       </clipPath>
 
       <g clipPath="url(#fti-telemetry-clip)">
+        <rect x={nowX} y={PAD.t} width={pwF} height={ph} fill="#6366f1" opacity="0.07" />
         {SERIES.map((series) => (
           <path key={series[0]} d={path(series)} fill="none" stroke={series[2]} strokeWidth={series[0] === "t" ? 2.7 : 2.2} strokeLinecap="round" strokeLinejoin="round" />
         ))}
+        {FORECAST_KEYS.map((key) => (
+          <path key={`band-${key}`} d={bandPath(key)} fill={FORECAST_META[key].color} opacity="0.13" stroke="none" />
+        ))}
+        {FORECAST_KEYS.map((key) => (
+          <path key={`fc-${key}`} d={forecastPath(key)} fill="none" stroke={FORECAST_META[key].color} strokeWidth={FORECAST_META[key].width} strokeLinecap="round" strokeDasharray="6 5" opacity="0.6" />
+        ))}
       </g>
 
-      <line x1={PAD.l + pw - 1} x2={PAD.l + pw - 1} y1={PAD.t} y2={PAD.t + ph} stroke="#0f172a" opacity="0.28" />
-      <text x={PAD.l + pw - 92} y={PAD.t + ph - 12} fontSize="14" fontWeight="600" fill="#64748b">история ← live</text>
+      <line x1={nowX} x2={nowX} y1={PAD.t} y2={PAD.t + ph} stroke="#0f172a" opacity="0.35" />
+      <text x={PAD.l + 12} y={PAD.t + ph - 12} fontSize="14" fontWeight="700" fill="#475569">история</text>
+      <text x={nowX + 8} y={PAD.t + 22} fontSize="13" fontWeight="800" fill="#4f46e5" letterSpacing="0.06em">ПРОГНОЗ</text>
+      <text x={nowX + 8} y={PAD.t + 40} fontSize="11" fontWeight="600" fill="#6366f1">экстраполяция модели</text>
 
-      {[0, 30, 60, 90, 120].map((back) => {
-        const xx = PAD.l + pw - back * (pw / (N - 1));
+      {[0, 30, 60, 90].map((back) => {
+        const xx = nowX - back * (pwH / (N - 1));
         return xx < PAD.l ? null : <text key={back} x={xx} y={H - 9} textAnchor="middle" fontSize="13" fontWeight="600" fill="#64748b">{back ? `-${back}` : "сейчас"}</text>;
+      })}
+      {[30, 60].map((ahead) => {
+        const xx = nowX + ahead * (pwF / FORECAST_STEPS);
+        return xx > PAD.l + pw ? null : <text key={`f-${ahead}`} x={xx} y={H - 9} textAnchor="middle" fontSize="13" fontWeight="700" fill="#4f46e5">+{ahead}</text>;
       })}
 
       {h && (
@@ -126,6 +189,12 @@ if (import.meta.env.DEV && typeof window !== "undefined" && !window.__FTI_TESTS_
   runTests();
 }
 
+function toneClass(tone: string): string {
+  if (tone === "alarm") return "border-red-300 bg-red-50 text-red-800";
+  if (tone === "warn") return "border-amber-300 bg-amber-50 text-amber-800";
+  return "border-emerald-300 bg-emerald-50 text-emerald-800";
+}
+
 interface CardProps {
   title: string;
   value: number;
@@ -135,9 +204,8 @@ interface CardProps {
 }
 
 function Card({ title, value, unit, tone, hint }: CardProps) {
-  const cls = tone === "alarm" ? "border-red-300 bg-red-50 text-red-800" : tone === "warn" ? "border-amber-300 bg-amber-50 text-amber-800" : "border-emerald-300 bg-emerald-50 text-emerald-800";
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${cls}`}>
+    <div className={`rounded-2xl border p-4 shadow-sm ${toneClass(tone)}`}>
       <p className="text-xs uppercase opacity-70">{title}</p>
       <p className="mt-2 text-2xl font-semibold">{value} <span className="text-sm">{unit}</span></p>
       <p className="mt-2 text-xs opacity-80">{hint}</p>
@@ -153,24 +221,68 @@ interface EventItem {
   text: string;
 }
 
+interface SliderProps {
+  label: string;
+  value: number;
+  percent: number;
+  onChange: (value: number) => void;
+  limits: { min: number; max: number; step: number };
+  accent: string;
+  valueTint: string;
+  ticks: readonly [string, string, string];
+}
+
+function Slider({ label, value, percent, onChange, limits, accent, valueTint, ticks }: SliderProps) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="font-semibold">{label}</span>
+        <span className={`font-mono ${valueTint}`}>{percent}%</span>
+      </div>
+      <input
+        type="range"
+        min={limits.min}
+        max={limits.max}
+        step={limits.step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className={`mt-2 w-full ${accent}`}
+      />
+      <div className="mt-1 flex justify-between text-[10px] uppercase tracking-wide text-slate-400">
+        <span>{ticks[0]}</span><span>{ticks[1]}</span><span>{ticks[2]}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function FTIDigitalTwinPrototype() {
   const [mode, setMode] = useState<ModeKey>("normal");
   const [running, setRunning] = useState(true);
   const [data, setData] = useState<DataPoint[]>(seed);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [last, setLast] = useState(Date.now());
+  const [controls, setControls] = useState<Controls>(DEFAULT_CONTROLS);
+  const [kiosk, setKiosk] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const idleRef = useRef(Date.now());
 
   const latest = data[data.length - 1]!;
   const chart = useMemo(() => build(data), [data]);
+  const fc = useMemo(() => forecast(data, mode, controls), [data, mode, controls]);
   const r = useMemo(() => risk(latest), [latest]);
   const ev = useMemo(() => evidence(latest), [latest]);
   const rec = useMemo(() => advice(mode, r), [mode, r]);
+
+  // Симуляционный интервал зависит только от mode/running — слайдеры читаются через ref,
+  // иначе каждое движение ползунка пересоздавало бы таймер и сбивало плавность ленты.
+  const controlsRef = useRef(controls);
+  controlsRef.current = controls;
 
   useEffect(() => {
     if (!running) return undefined;
     const id = setInterval(() => {
       const stamp = Date.now();
-      setData((cur) => [...cur.slice(-(N - 1)), point(cur[cur.length - 1]!.k + 1, mode, cur[cur.length - 1])]);
+      setData((cur) => [...cur.slice(-(N - 1)), point(cur[cur.length - 1]!.k + 1, mode, cur[cur.length - 1], controlsRef.current)]);
       setLast(stamp);
     }, DT);
     return () => clearInterval(id);
@@ -192,6 +304,47 @@ export default function FTIDigitalTwinPrototype() {
     setEvents([]);
     setLast(Date.now());
     setRunning(true);
+    setControls(DEFAULT_CONTROLS);
+  }
+
+  function bumpIdle() {
+    idleRef.current = Date.now();
+  }
+
+  useEffect(() => {
+    if (!kiosk) return undefined;
+    const id = setInterval(() => {
+      if (Date.now() - idleRef.current >= IDLE_RESET_MS) {
+        reset();
+        setShowOnboarding(true);
+        idleRef.current = Date.now();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [kiosk]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const handler = () => {
+      const active = document.fullscreenElement != null;
+      setKiosk(active);
+      if (active) bumpIdle();
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  async function toggleKiosk() {
+    if (typeof document === "undefined") return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+    } else {
+      await document.documentElement.requestFullscreen?.().catch(() => {});
+    }
+  }
+
+  function dismissOnboarding() {
+    setShowOnboarding(false);
   }
 
   function tone(key: string): RiskLevel {
@@ -202,33 +355,53 @@ export default function FTIDigitalTwinPrototype() {
     return "ok";
   }
 
-  const statusCls = r[1] === "alarm" ? "bg-red-500" : r[1] === "warn" ? "bg-amber-500" : "bg-emerald-500";
+  const heaterPercent = Math.round(controls.heater * 100);
+  const coolingPercent = Math.round(controls.cooling * 100);
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 text-slate-900 sm:p-6">
+    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-6" onClick={bumpIdle} onMouseMove={bumpIdle} onTouchStart={bumpIdle}>
       <div className="mx-auto max-w-7xl space-y-5">
-        <header className="rounded-3xl bg-slate-950 p-6 text-white shadow-xl lg:p-8">
-          <div className="grid gap-6 lg:grid-cols-[1.4fr_.6fr]">
-            <div>
-              <p className="mb-4 inline-block rounded-full bg-white/10 px-3 py-1 text-sm">Кафедра технической физики</p>
-              <h1 className="text-3xl font-semibold sm:text-5xl">Цифровой двойник лабораторной установки</h1>
-              <p className="mt-4 max-w-3xl text-slate-300">Потоковая телеметрия, сценарии отказов, объяснимая диагностика и журнал событий.</p>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-5">
-              <p className="text-sm text-slate-300">Статус</p>
-              <div className="mt-2 flex items-center gap-3">
-                <span className={`h-3 w-3 rounded-full ${statusCls}`} />
-                <span className="text-3xl font-semibold">{r[0]}</span>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-2xl bg-white/10 p-3">Сценарий<br /><b>{SCENARIOS[mode][0]}</b></div>
-                <div className="rounded-2xl bg-white/10 p-3">Риск<br /><b>{ev.score}/100</b></div>
-              </div>
-            </div>
+        <header className="rounded-3xl bg-gradient-to-br from-indigo-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl lg:p-8">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <p className="inline-block rounded-full bg-white/10 px-3 py-1 text-sm">Кафедра технической физики</p>
+            <button onClick={toggleKiosk} className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-100 active:scale-95">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {kiosk ? (
+                  <path d="M9 5v4H5M15 5v4h4M9 19v-4H5M15 19v-4h4" />
+                ) : (
+                  <path d="M3 7V3h4M21 7V3h-4M3 17v4h4M21 17v4h-4" />
+                )}
+              </svg>
+              {kiosk ? "Выйти из киоска" : "Полный экран"}
+            </button>
           </div>
+          <h1 className="text-3xl font-semibold sm:text-5xl">Цифровой двойник лабораторной установки</h1>
+          <p className="mt-4 max-w-3xl text-slate-300">Потоковая телеметрия, сценарии отказов, объяснимая диагностика и журнал событий.</p>
         </header>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {showOnboarding && (
+          <div className="relative rounded-3xl border border-indigo-200 bg-indigo-50 p-5 text-sm text-indigo-900 shadow-sm">
+            <button onClick={dismissOnboarding} className="absolute right-4 top-4 rounded-full bg-white/70 px-2 text-indigo-700 hover:bg-white" aria-label="Закрыть подсказку">×</button>
+            <p className="text-base font-semibold">Как пользоваться демо</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div><b className="block text-indigo-700">1. Управление</b>Двигайте слайдеры мощности и охлаждения — реакция установки видна сразу.</div>
+              <div><b className="block text-indigo-700">2. Сценарии</b>Кнопки справа запускают типовые отказы. Двойник реагирует и объясняет причину.</div>
+              <div><b className="block text-indigo-700">3. Прогноз</b>Полупрозрачные линии справа — экстраполяция модели на ~21 секунду вперёд.</div>
+            </div>
+          </div>
+        )}
+
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className={`rounded-2xl border p-4 shadow-sm ${toneClass(r[1])}`}>
+            <p className="text-xs uppercase opacity-70">Сценарий</p>
+            <p className="mt-2 text-base font-semibold leading-tight">{SCENARIOS[mode][0]}</p>
+            <p className="mt-2 text-xs opacity-80">{SCENARIOS[mode][1]}</p>
+          </div>
+          <div className={`rounded-2xl border p-4 shadow-sm ${toneClass(r[1])}`}>
+            <p className="text-xs uppercase opacity-70">Риск</p>
+            <p className="mt-2 text-2xl font-semibold">{ev.score} <span className="text-sm">/ 100</span></p>
+            <p className="mt-2 text-xs opacity-80">{r[0]}</p>
+          </div>
           <Card title="Температура" value={latest.t} unit="°C" tone={tone("t")} hint="Порог: 74 / 82 °C" />
           <Card title="Давление" value={latest.p} unit="Па" tone={tone("p")} hint="Порог: 0.035 / 0.06 Па" />
           <Card title="Ток нагрузки" value={latest.i} unit="А" tone={tone("i")} hint="Силовая цепь нагревателя" />
@@ -243,18 +416,18 @@ export default function FTIDigitalTwinPrototype() {
                 <p className="text-sm text-slate-500">Плавная лента: давление на графике масштабировано, в подсказке показаны реальные единицы.</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setRunning((x) => !x)} className="rounded-xl border px-3 py-2 text-sm">{running ? "Пауза" : "Запуск"}</button>
-                <button onClick={reset} className="rounded-xl bg-slate-950 px-3 py-2 text-sm text-white">Сброс</button>
+                <button onClick={() => setRunning((x) => !x)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">{running ? "Пауза" : "Запуск"}</button>
+                <button onClick={reset} className="rounded-xl bg-indigo-700 px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-800">Сброс</button>
               </div>
             </div>
             <div className="h-[330px]">
-              <Chart rows={chart} running={running} last={last} />
+              <Chart rows={chart} fc={fc} running={running} last={last} />
             </div>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="mb-3 flex items-baseline justify-between gap-3">
                 <h3 className="text-sm font-semibold text-slate-900">Расчёт параметров</h3>
-                <p className="text-xs text-slate-500">ε — случайный шум измерения</p>
+                <p className="text-xs text-slate-500">k — номер тика, Δt = 300 мс, ε — измерительный шум</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {FORMULAS.map(([name, formula, note]) => (
@@ -270,14 +443,32 @@ export default function FTIDigitalTwinPrototype() {
 
           <div className="space-y-5">
             <div className="rounded-3xl bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold">Сценарии</h2>
-              <div className="mt-3 space-y-2">
-                {(Object.entries(SCENARIOS) as [ModeKey, readonly [string, string]][]).map(([key, [name, desc]]) => (
-                  <button key={key} onClick={() => setMode(key)} className={`w-full rounded-2xl border p-3 text-left ${mode === key ? "border-slate-950 bg-slate-950 text-white" : "bg-white hover:bg-slate-50"}`}>
-                    <b className="text-sm">{name}</b>
-                    <p className={`text-xs ${mode === key ? "text-slate-300" : "text-slate-500"}`}>{desc}</p>
-                  </button>
-                ))}
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-lg font-semibold">Управление</h2>
+                <button onClick={() => setControls(DEFAULT_CONTROLS)} className="text-xs font-semibold text-indigo-700 hover:text-indigo-900">авто</button>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Двигайте ползунки — двойник немедленно отрабатывает воздействие.</p>
+              <div className="mt-4 space-y-4">
+                <Slider
+                  label="Мощность нагревателя"
+                  value={controls.heater}
+                  percent={heaterPercent}
+                  onChange={(v) => setControls((c) => ({ ...c, heater: v }))}
+                  limits={CONTROL_LIMITS.heater}
+                  accent="accent-indigo-600"
+                  valueTint="text-indigo-700"
+                  ticks={["60%", "номинал", "160%"]}
+                />
+                <Slider
+                  label="Охлаждение"
+                  value={controls.cooling}
+                  percent={coolingPercent}
+                  onChange={(v) => setControls((c) => ({ ...c, cooling: v }))}
+                  limits={CONTROL_LIMITS.cooling}
+                  accent="accent-sky-600"
+                  valueTint="text-sky-700"
+                  ticks={["выкл", "50%", "макс"]}
+                />
               </div>
             </div>
 
@@ -292,6 +483,18 @@ export default function FTIDigitalTwinPrototype() {
                     {ev.factors.map((f) => <p key={f.key} className="rounded-xl bg-white p-2 text-xs"><b>{f.label}:</b> {f.raw} {f.unit}; {f.text}</p>)}
                   </div>
                 ) : <p className="mt-3 text-xs text-slate-500">Все параметры в рабочем диапазоне.</p>}
+              </div>
+            </div>
+
+            <div className="rounded-3xl bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold">Сценарии отказов</h2>
+              <div className="mt-3 space-y-2">
+                {(Object.entries(SCENARIOS) as [ModeKey, readonly [string, string]][]).map(([key, [name, desc]]) => (
+                  <button key={key} onClick={() => setMode(key)} className={`w-full rounded-2xl border p-3 text-left transition ${mode === key ? "border-indigo-700 bg-indigo-700 text-white shadow-sm" : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50"}`}>
+                    <b className="text-sm">{name}</b>
+                    <p className={`text-xs ${mode === key ? "text-indigo-100" : "text-slate-500"}`}>{desc}</p>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
