@@ -9,6 +9,7 @@ export const SCENARIOS = {
 } as const;
 
 export type ModeKey = keyof typeof SCENARIOS;
+export type RiskLevel = "ok" | "warn" | "alarm";
 
 // ─── Пороги параметров ────────────────────────────────────────────────────────
 
@@ -72,14 +73,14 @@ export interface ChartDataPoint extends DataPoint {
   label: number;
 }
 
-export type RiskResult = [string, string, string[], string[]];
+export type RiskResult = [string, RiskLevel, string[], string[]];
 
 export interface EvidenceFactor {
   key: string;
   label: string;
   raw: number;
   unit: string;
-  tone: string;
+  tone: RiskLevel;
   score: number;
   text: string;
 }
@@ -99,7 +100,9 @@ export const time = () =>
 
 // ─── Генерация точки ──────────────────────────────────────────────────────────
 
-export function point(k: number, mode: string, prev?: DataPoint): DataPoint {
+const LIMITS_ENTRIES = Object.entries(LIMITS);
+
+export function point(k: number, mode: ModeKey, prev?: DataPoint): DataPoint {
   const q = DT / 900;
   const n = Math.sqrt(q);
   const base = prev || { k: 0, tm: "", t: 58, p: 0.018, i: 2.9, w: rnd(HEATER_U * 2.9, 1), v: 0.8, s: 4 };
@@ -157,7 +160,7 @@ export function seed(): DataPoint[] {
 export function risk(m: DataPoint): RiskResult {
   const bad: string[] = [];
   const warn: string[] = [];
-  Object.entries(LIMITS).forEach(([key, [w, a]]) => {
+  LIMITS_ENTRIES.forEach(([key, [w, a]]) => {
     const value = key === "s" ? Math.abs(m[key as keyof DataPoint] as number) : (m[key as keyof DataPoint] as number);
     if (value >= a) bad.push(key);
     else if (value >= w) warn.push(key);
@@ -168,11 +171,11 @@ export function risk(m: DataPoint): RiskResult {
 }
 
 export function evidence(m: DataPoint): EvidenceResult {
-  const factors = Object.entries(LIMITS)
+  const factors = LIMITS_ENTRIES
     .map(([key, [w, a, unit, label]]) => {
       const raw = m[key as keyof DataPoint] as number;
       const value = key === "s" ? Math.abs(raw) : raw;
-      const tone = value >= a ? "alarm" : value >= w ? "warn" : "ok";
+      const tone: RiskLevel = value >= a ? "alarm" : value >= w ? "warn" : "ok";
       const score = tone === "ok" ? 0 : clamp(((value - w) / Math.max(a - w, 0.0001)) * 35 + (tone === "alarm" ? 25 : 8), 0, 60);
       const text = tone === "alarm" ? `выше аварийного порога ${a} ${unit}` : tone === "warn" ? `выше порога ${w} ${unit}` : "в норме";
       return { key, label, raw, unit, tone, score, text };
@@ -183,7 +186,7 @@ export function evidence(m: DataPoint): EvidenceResult {
   return { score: rnd(clamp(factors.reduce((sum, x) => sum + x.score, 0), 0, 100), 0), factors };
 }
 
-export function advice(mode: string, r: RiskResult): [string, string, string] {
+export function advice(mode: ModeKey, r: RiskResult): [string, string, string] {
   const keys = new Set([...r[2], ...r[3]]);
   if (r[1] === "ok") return ["Система работает штатно", "Продолжайте эксперимент и контролируйте тренды.", "Действие не требуется."];
   if (keys.has("t") || keys.has("w") || mode === "thermal") return ["Вероятен перегрев", "Повышенная мощность нагревателя и ток нагрузки предшествуют ускоренному росту температуры.", "Снизить мощность, перевести установку в безопасный режим, сохранить лог."];
@@ -195,7 +198,7 @@ export function advice(mode: string, r: RiskResult): [string, string, string] {
 // ─── Подготовка данных для графика ───────────────────────────────────────────
 
 export function build(rows: DataPoint[]): ChartDataPoint[] {
-  return rows.map((x, idx) => ({ ...x, w: rnd(HEATER_U * x.i, 1), pChart: rnd(x.p * 1000, 2), label: idx - rows.length + 1 } as ChartDataPoint));
+  return rows.map((x, idx) => ({ ...x, pChart: rnd(x.p * 1000, 2), label: idx - rows.length + 1 } as ChartDataPoint));
 }
 
 // ─── Координатные функции SVG ─────────────────────────────────────────────────

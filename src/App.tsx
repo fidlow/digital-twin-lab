@@ -21,11 +21,18 @@ import {
   seed,
   sx,
   sy,
-  time,
   type ChartDataPoint,
   type DataPoint,
+  type ModeKey,
+  type RiskLevel,
   type SeriesItem,
 } from "./models/digitalTwin";
+
+declare global {
+  interface Window {
+    __FTI_TESTS__?: boolean;
+  }
+}
 
 interface ChartProps {
   rows: ChartDataPoint[];
@@ -114,8 +121,8 @@ function Chart({ rows, running, last }: ChartProps) {
   );
 }
 
-if (typeof window !== "undefined" && !(window as any).__FTI_TESTS__) {
-  (window as any).__FTI_TESTS__ = true;
+if (import.meta.env.DEV && typeof window !== "undefined" && !window.__FTI_TESTS__) {
+  window.__FTI_TESTS__ = true;
   runTests();
 }
 
@@ -147,7 +154,7 @@ interface EventItem {
 }
 
 export default function FTIDigitalTwinPrototype() {
-  const [mode, setMode] = useState("normal");
+  const [mode, setMode] = useState<ModeKey>("normal");
   const [running, setRunning] = useState(true);
   const [data, setData] = useState<DataPoint[]>(seed);
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -175,7 +182,7 @@ export default function FTIDigitalTwinPrototype() {
     setEvents((cur) => {
       if (cur[0]?.key === key && Date.now() - cur[0].ts < 7000) return cur;
       const limit = LIMITS[key]!;
-      return [{ key, ts: Date.now(), tm: time(), title: `${r[0]}: ${limit[3]}`, text: `${latest[key as keyof DataPoint]} ${limit[2]}. ${rec[2]}` }, ...cur].slice(0, 10);
+      return [{ key, ts: Date.now(), tm: latest.tm, title: `${r[0]}: ${limit[3]}`, text: `${latest[key as keyof DataPoint]} ${limit[2]}. ${rec[2]}` }, ...cur].slice(0, 10);
     });
   }, [latest, r, rec]);
 
@@ -187,7 +194,7 @@ export default function FTIDigitalTwinPrototype() {
     setRunning(true);
   }
 
-  function tone(key: string): string {
+  function tone(key: string): RiskLevel {
     const val = key === "s" ? Math.abs(latest[key as keyof DataPoint] as number) : (latest[key as keyof DataPoint] as number);
     const limit = LIMITS[key]!;
     if (val >= limit[1]) return "alarm";
@@ -214,7 +221,7 @@ export default function FTIDigitalTwinPrototype() {
                 <span className="text-3xl font-semibold">{r[0]}</span>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-2xl bg-white/10 p-3">Сценарий<br /><b>{SCENARIOS[mode as keyof typeof SCENARIOS][0]}</b></div>
+                <div className="rounded-2xl bg-white/10 p-3">Сценарий<br /><b>{SCENARIOS[mode][0]}</b></div>
                 <div className="rounded-2xl bg-white/10 p-3">Риск<br /><b>{ev.score}/100</b></div>
               </div>
             </div>
@@ -265,7 +272,7 @@ export default function FTIDigitalTwinPrototype() {
             <div className="rounded-3xl bg-white p-5 shadow-sm">
               <h2 className="text-lg font-semibold">Сценарии</h2>
               <div className="mt-3 space-y-2">
-                {Object.entries(SCENARIOS).map(([key, [name, desc]]) => (
+                {(Object.entries(SCENARIOS) as [ModeKey, readonly [string, string]][]).map(([key, [name, desc]]) => (
                   <button key={key} onClick={() => setMode(key)} className={`w-full rounded-2xl border p-3 text-left ${mode === key ? "border-slate-950 bg-slate-950 text-white" : "bg-white hover:bg-slate-50"}`}>
                     <b className="text-sm">{name}</b>
                     <p className={`text-xs ${mode === key ? "text-slate-300" : "text-slate-500"}`}>{desc}</p>
