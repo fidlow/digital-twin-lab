@@ -8,7 +8,6 @@ import {
   H,
   HISTORY_FRACTION,
   IDLE_RESET_MS,
-  LIMITS,
   N,
   PAD,
   SCENARIOS,
@@ -22,6 +21,7 @@ import {
   fx,
   hoverUnit,
   hoverValue,
+  paramTone,
   point,
   risk,
   runTests,
@@ -33,9 +33,10 @@ import {
   type DataPoint,
   type ForecastPoint,
   type ModeKey,
-  type RiskLevel,
   type SeriesItem,
 } from "./models/digitalTwin";
+import { TheorySection } from "./components/TheorySection";
+import { Tex } from "./components/Tex";
 
 declare global {
   interface Window {
@@ -293,8 +294,11 @@ export default function FTIDigitalTwinPrototype() {
     const key = [...r[2], ...r[3]][0]!;
     setEvents((cur) => {
       if (cur[0]?.key === key && Date.now() - cur[0].ts < 7000) return cur;
-      const limit = LIMITS[key]!;
-      return [{ key, ts: Date.now(), tm: latest.tm, title: `${r[0]}: ${limit[3]}`, text: `${latest[key as keyof DataPoint]} ${limit[2]}. ${rec[2]}` }, ...cur].slice(0, 10);
+      const p = paramTone(latest, key);
+      // Для дрейфа риск считается по модулю — показываем «±X», иначе пользователь
+      // увидит, например, «-42 мВ выше порога», и это сбивает с толку.
+      const display = key === "s" ? `±${p.value}` : `${p.raw}`;
+      return [{ key, ts: Date.now(), tm: latest.tm, title: `${r[0]}: ${p.label}`, text: `${display} ${p.unit}. ${rec[2]}` }, ...cur].slice(0, 10);
     });
   }, [latest, r, rec]);
 
@@ -347,19 +351,11 @@ export default function FTIDigitalTwinPrototype() {
     setShowOnboarding(false);
   }
 
-  function tone(key: string): RiskLevel {
-    const val = key === "s" ? Math.abs(latest[key as keyof DataPoint] as number) : (latest[key as keyof DataPoint] as number);
-    const limit = LIMITS[key]!;
-    if (val >= limit[1]) return "alarm";
-    if (val >= limit[0]) return "warn";
-    return "ok";
-  }
-
   const heaterPercent = Math.round(controls.heater * 100);
   const coolingPercent = Math.round(controls.cooling * 100);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-6" onClick={bumpIdle} onMouseMove={bumpIdle} onTouchStart={bumpIdle}>
+    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-6" onClick={bumpIdle} onMouseMove={bumpIdle} onTouchStart={bumpIdle} onKeyDown={bumpIdle}>
       <div className="mx-auto max-w-7xl space-y-5">
         <header className="rounded-3xl bg-gradient-to-br from-indigo-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl lg:p-8">
           <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -402,10 +398,10 @@ export default function FTIDigitalTwinPrototype() {
             <p className="mt-2 text-2xl font-semibold">{ev.score} <span className="text-sm">/ 100</span></p>
             <p className="mt-2 text-xs opacity-80">{r[0]}</p>
           </div>
-          <Card title="Температура" value={latest.t} unit="°C" tone={tone("t")} hint="Порог: 74 / 82 °C" />
-          <Card title="Давление" value={latest.p} unit="Па" tone={tone("p")} hint="Порог: 0.035 / 0.06 Па" />
-          <Card title="Ток нагрузки" value={latest.i} unit="А" tone={tone("i")} hint="Силовая цепь нагревателя" />
-          <Card title="Мощность" value={latest.w} unit="Вт" tone={tone("w")} hint="P = U × I, U = 24 В" />
+          <Card title="Температура" value={latest.t} unit="°C" tone={paramTone(latest, "t").tone} hint="Порог: 74 / 82 °C" />
+          <Card title="Давление" value={latest.p} unit="Па" tone={paramTone(latest, "p").tone} hint="Порог: 0.035 / 0.06 Па" />
+          <Card title="Ток нагрузки" value={latest.i} unit="А" tone={paramTone(latest, "i").tone} hint="Силовая цепь нагревателя" />
+          <Card title="Мощность" value={latest.w} unit="Вт" tone={paramTone(latest, "w").tone} hint="P = U × I, U = 24 В" />
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
@@ -433,7 +429,9 @@ export default function FTIDigitalTwinPrototype() {
                 {FORMULAS.map(([name, formula, note]) => (
                   <div key={name} className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{name}</p>
-                    <p className="mt-1 font-mono text-[15px] font-semibold text-slate-900">{formula}</p>
+                    <div className="mt-1 text-slate-900">
+                      <Tex display wrap>{formula}</Tex>
+                    </div>
                     <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
                   </div>
                 ))}
@@ -445,7 +443,7 @@ export default function FTIDigitalTwinPrototype() {
             <div className="rounded-3xl bg-white p-5 shadow-sm">
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="text-lg font-semibold">Управление</h2>
-                <button onClick={() => setControls(DEFAULT_CONTROLS)} className="text-xs font-semibold text-indigo-700 hover:text-indigo-900">авто</button>
+                <button onClick={() => setControls(DEFAULT_CONTROLS)} className="text-xs font-semibold text-indigo-700 hover:text-indigo-900">сброс</button>
               </div>
               <p className="mt-1 text-xs text-slate-500">Двигайте ползунки — двойник немедленно отрабатывает воздействие.</p>
               <div className="mt-4 space-y-4">
@@ -500,12 +498,14 @@ export default function FTIDigitalTwinPrototype() {
           </div>
         </section>
 
+        <TheorySection />
+
         <section>
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold">Журнал событий</h2>
             <div className="mt-3 max-h-64 space-y-2 overflow-auto">
-              {events.length ? events.map((e, i) => (
-                <div key={`${e.ts}-${i}`} className="rounded-2xl bg-slate-50 p-3 text-sm">
+              {events.length ? events.map((e) => (
+                <div key={`${e.ts}-${e.key}`} className="rounded-2xl bg-slate-50 p-3 text-sm">
                   <div className="flex justify-between gap-3"><b>{e.title}</b><span className="text-slate-500">{e.tm}</span></div>
                   <p className="mt-1 text-slate-600">{e.text}</p>
                 </div>

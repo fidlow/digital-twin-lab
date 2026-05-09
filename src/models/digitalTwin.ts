@@ -37,14 +37,14 @@ export const SERIES: SeriesItem[] = [
 // ─── Формулы модели ───────────────────────────────────────────────────────────
 
 export const FORMULAS = [
-  ["Температура", "Tₖ₊₁ = Tₖ + (αI² − β·(Tₖ−Tₐ))·Δt + ε", "α — нагрев, β — теплопотери (растёт при охлаждении), Tₐ = 25 °C — окружение"],
-  ["Давление", "pₖ₊₁ = pₖ + Δpутечки + ε", "Δpутечки — скорость утечки, активна в сценарии «Утечка вакуума»"],
-  ["Ток нагрузки", "Iₖ = Iбаз·uн + ΔIрежима + ε", "Iбаз ≈ 2.9 А, uн — ползунок нагревателя (0.6–1.6), ΔIрежима — добавка сценария"],
-  ["Мощность", "Pₖ = U·Iₖ", "U = 24 В — напряжение питания нагревателя"],
-  ["Вибрация", "Vₖ = V₀ + A·sin(k/τ) + ε", "V₀ — фоновый уровень, A — амплитуда, τ — период"],
-  ["Дрейф", "Sₖ₊₁ = Sₖ + ΔSдрейфа + ε", "ΔSдрейфа — скорость ухода базовой линии (сценарий «Дрейф»)"],
-  ["Индекс риска", "R = Σ rᵢ, 0 ≤ R ≤ 100", "rᵢ — вклад каждого параметра, превысившего порог"],
-  ["Прогноз", "x̂ₖ₊ⱼ = f(x̂ₖ₊ⱼ₋₁, u, m); σ(j) = σ₀·√j", "x̂ — оценка, j — шагов вперёд, u — управление (нагрев, охлаждение), m — сценарий; коридор расширяется как √j"],
+  ["Температура", String.raw`T_{k+1} = T_k + \big(\alpha I^2 - \beta\,(T_k - T_a)\big)\,\Delta t + \varepsilon`, "α — нагрев, β — теплопотери (растёт при охлаждении), Tₐ = 25 °C — окружение"],
+  ["Давление", String.raw`p_{k+1} = p_k + \Delta p_{\text{утечки}} + \varepsilon`, "Δp_утечки — скорость утечки, активна в сценарии «Утечка вакуума»"],
+  ["Ток нагрузки", String.raw`I_k = I_{\text{баз}}\,u_h + \Delta I_{\text{реж}} + \varepsilon`, "I_баз ≈ 2,9 А, u_h — ползунок нагревателя (0,6–1,6), ΔI_реж — добавка сценария"],
+  ["Мощность", String.raw`P_k = U \cdot I_k`, "U = 24 В — напряжение питания нагревателя"],
+  ["Вибрация", String.raw`V_k = V_0 + A\sin(k/\tau) + \varepsilon`, "V₀ — фоновый уровень, A — амплитуда, τ — период"],
+  ["Дрейф", String.raw`S_{k+1} = S_k + \Delta S_{\text{дрейфа}} + \varepsilon`, "ΔS_дрейфа — скорость ухода базовой линии (сценарий «Дрейф»)"],
+  ["Индекс риска", String.raw`R = \sum_i r_i, \quad 0 \le R \le 100`, "rᵢ — вклад каждого параметра, превысившего порог"],
+  ["Прогноз", String.raw`\hat x_{k+j} = f(\hat x_{k+j-1},\,u,\,m), \quad \sigma(j) = \sigma_0 \sqrt{j}`, "x̂ — оценка, j — шагов вперёд, u — управление, m — сценарий; коридор расширяется как √j"],
 ] as const;
 
 // ─── Константы симуляции ──────────────────────────────────────────────────────
@@ -200,13 +200,33 @@ export function seed(): DataPoint[] {
 
 // ─── Диагностика ──────────────────────────────────────────────────────────────
 
+export interface ParamTone {
+  raw: number;       // знаковое значение параметра
+  value: number;     // значение для сравнения с порогами (для «s» — модуль)
+  tone: RiskLevel;
+  warnAt: number;
+  alarmAt: number;
+  unit: string;
+  label: string;
+}
+
+// Единая точка истины для оценки одного параметра: используется в risk/evidence
+// и в карточках UI, чтобы пороги и знаковая семантика «s» не расходились.
+export function paramTone(m: DataPoint, key: string): ParamTone {
+  const [warnAt, alarmAt, unit, label] = LIMITS[key]!;
+  const raw = m[key as keyof DataPoint] as number;
+  const value = key === "s" ? Math.abs(raw) : raw;
+  const tone: RiskLevel = value >= alarmAt ? "alarm" : value >= warnAt ? "warn" : "ok";
+  return { raw, value, tone, warnAt, alarmAt, unit, label };
+}
+
 export function risk(m: DataPoint): RiskResult {
   const bad: string[] = [];
   const warn: string[] = [];
-  LIMITS_ENTRIES.forEach(([key, [w, a]]) => {
-    const value = key === "s" ? Math.abs(m[key as keyof DataPoint] as number) : (m[key as keyof DataPoint] as number);
-    if (value >= a) bad.push(key);
-    else if (value >= w) warn.push(key);
+  LIMITS_ENTRIES.forEach(([key]) => {
+    const t = paramTone(m, key).tone;
+    if (t === "alarm") bad.push(key);
+    else if (t === "warn") warn.push(key);
   });
   if (bad.length) return ["Авария", "alarm", bad, warn];
   if (warn.length) return ["Предупреждение", "warn", bad, warn];
@@ -215,13 +235,11 @@ export function risk(m: DataPoint): RiskResult {
 
 export function evidence(m: DataPoint): EvidenceResult {
   const factors = LIMITS_ENTRIES
-    .map(([key, [w, a, unit, label]]) => {
-      const raw = m[key as keyof DataPoint] as number;
-      const value = key === "s" ? Math.abs(raw) : raw;
-      const tone: RiskLevel = value >= a ? "alarm" : value >= w ? "warn" : "ok";
-      const score = tone === "ok" ? 0 : clamp(((value - w) / Math.max(a - w, 0.0001)) * 35 + (tone === "alarm" ? 25 : 8), 0, 60);
-      const text = tone === "alarm" ? `выше аварийного порога ${a} ${unit}` : tone === "warn" ? `выше порога ${w} ${unit}` : "в норме";
-      return { key, label, raw, unit, tone, score, text };
+    .map(([key]) => {
+      const p = paramTone(m, key);
+      const score = p.tone === "ok" ? 0 : clamp(((p.value - p.warnAt) / Math.max(p.alarmAt - p.warnAt, 0.0001)) * 35 + (p.tone === "alarm" ? 25 : 8), 0, 60);
+      const text = p.tone === "alarm" ? `выше аварийного порога ${p.alarmAt} ${p.unit}` : p.tone === "warn" ? `выше порога ${p.warnAt} ${p.unit}` : "в норме";
+      return { key, label: p.label, raw: p.raw, unit: p.unit, tone: p.tone, score, text };
     })
     .filter((x): x is EvidenceFactor => x.tone !== "ok")
     .sort((a, b) => b.score - a.score);

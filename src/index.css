@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Перенос длинных формул вместо горизонтального скролла */
+.tex-wrap .katex-display { overflow: visible; margin: 0; }
+.tex-wrap .katex-display > .katex { white-space: normal; }
+.tex-wrap .katex .base { display: inline-block; }
+
 html {
   background: #f1f5f9;
 }
