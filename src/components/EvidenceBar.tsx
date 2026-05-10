@@ -4,11 +4,19 @@ interface EvidenceBarProps {
   ev: EvidenceResult;
 }
 
-const TONE_FILL: Record<string, string> = {
-  ok: "bg-emerald-400",
-  warn: "bg-amber-400",
-  alarm: "bg-red-500",
+// Цвета по сигналу (а не по тону), чтобы три фактора одного уровня риска
+// были различимы в легенде. Палитра дублирует SERIES в digitalTwin.ts;
+// ключ `i` отсутствует на графике — для него подобран жёлтый из той же
+// насыщенной группы, что и остальные.
+const KEY_FILL: Record<string, string> = {
+  t: "#ef4444",
+  p: "#10b981",
+  i: "#eab308",
+  w: "#f97316",
+  v: "#0ea5e9",
+  s: "#8b5cf6",
 };
+const FALLBACK_FILL = "#94a3b8";
 
 export function EvidenceBar({ ev }: EvidenceBarProps) {
   const weights = evidenceWeights(ev);
@@ -34,15 +42,18 @@ export function EvidenceBar({ ev }: EvidenceBarProps) {
           <span
             key={w.key}
             title={`${w.label}: ${w.percent}%`}
-            className={`${TONE_FILL[w.tone] ?? "bg-slate-400"} h-full`}
-            style={{ width: `${w.percent}%` }}
+            className="h-full"
+            style={{ width: `${w.percent}%`, background: KEY_FILL[w.key] ?? FALLBACK_FILL }}
           />
         ))}
       </div>
       <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
         {weights.map((w) => (
           <li key={w.key} className="inline-flex items-center gap-1.5">
-            <span className={`inline-block h-2 w-2 rounded-full ${TONE_FILL[w.tone] ?? "bg-slate-400"}`} />
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: KEY_FILL[w.key] ?? FALLBACK_FILL }}
+            />
             {w.label} <span className="text-slate-400">— {w.percent}%</span>
           </li>
         ))}
