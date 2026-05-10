@@ -52,7 +52,7 @@ export function ControlsPanel({
             onClick={() => onPreviewToggle(false)}
             className={`rounded-full px-3 py-1 transition ${!previewMode ? "bg-indigo-700 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
           >
-            Применить
+            Сразу применить
           </button>
           <button
             type="button"
