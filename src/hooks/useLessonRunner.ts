@@ -15,6 +15,7 @@ export interface UseLessonRunnerResult {
   activeLesson: Lesson | null;
   stepIndex: number;
   totalSteps: number;
+  awaitingNext: boolean;
   start: (lesson: Lesson) => void;
   next: () => void;
   stop: () => void;
@@ -23,6 +24,7 @@ export interface UseLessonRunnerResult {
 export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [stepIndex, setStepIndex] = useState<number>(0);
+  const [awaitingNext, setAwaitingNext] = useState<boolean>(false);
 
   const hostRef = useRef<LessonHostApi>(host);
   hostRef.current = host;
@@ -42,6 +44,7 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
     const step = activeLesson.steps[stepIndex];
     if (!step) return;
     applyAction(step.action);
+    setAwaitingNext(false);
   }, [activeLesson, stepIndex, applyAction]);
 
   useEffect(() => {
@@ -52,11 +55,14 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
     if (cond.kind === "manual") return undefined;
     const enteredAt = Date.now();
     const id = setInterval(() => {
-      let advance = false;
-      if (cond.kind === "delay") advance = Date.now() - enteredAt >= cond.ms;
-      else if (cond.kind === "riskAtLeast") advance = hostRef.current.getRisk() >= cond.threshold;
-      else if (cond.kind === "tempAtLeast") advance = hostRef.current.getTemperature() >= cond.threshold;
-      if (advance) setStepIndex((i) => Math.min(i + 1, activeLesson.steps.length));
+      let ready = false;
+      if (cond.kind === "delay") ready = Date.now() - enteredAt >= cond.ms;
+      else if (cond.kind === "riskAtLeast") ready = hostRef.current.getRisk() >= cond.threshold;
+      else if (cond.kind === "tempAtLeast") ready = hostRef.current.getTemperature() >= cond.threshold;
+      if (ready) {
+        setAwaitingNext(true);
+        clearInterval(id);
+      }
     }, 250);
     return () => clearInterval(id);
   }, [activeLesson, stepIndex]);
@@ -64,6 +70,7 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
   const start = useCallback((lesson: Lesson) => {
     setActiveLesson(lesson);
     setStepIndex(0);
+    setAwaitingNext(false);
   }, []);
 
   const next = useCallback(() => {
@@ -74,7 +81,8 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
   const stop = useCallback(() => {
     setActiveLesson(null);
     setStepIndex(0);
+    setAwaitingNext(false);
   }, []);
 
-  return { activeLesson, stepIndex, totalSteps, start, next, stop };
+  return { activeLesson, stepIndex, totalSteps, awaitingNext, start, next, stop };
 }

@@ -4,16 +4,17 @@ import type { Lesson } from "../types/lessons";
 interface LessonRunnerProps {
   lesson: Lesson;
   stepIndex: number;
+  awaitingNext: boolean;
   onNext: () => void;
   onStop: () => void;
 }
 
-export function LessonRunner({ lesson, stepIndex, onNext, onStop }: LessonRunnerProps) {
+export function LessonRunner({ lesson, stepIndex, awaitingNext, onNext, onStop }: LessonRunnerProps) {
   const total = lesson.steps.length;
   const finished = stepIndex >= total;
   const step = lesson.steps[stepIndex];
   const percent = Math.round(((finished ? total : stepIndex) / total) * 100);
-  const isManual = step?.advanceOn.kind === "manual";
+  const canAdvance = step?.advanceOn.kind === "manual" || awaitingNext;
 
   return (
     <div className="fixed bottom-4 left-1/2 z-30 w-[min(92vw,720px)] -translate-x-1/2 rounded-3xl border border-indigo-200 bg-white p-4 shadow-2xl">
@@ -47,7 +48,7 @@ export function LessonRunner({ lesson, stepIndex, onNext, onStop }: LessonRunner
             >
               Прервать
             </button>
-            {isManual ? (
+            {canAdvance ? (
               <button
                 type="button"
                 onClick={onNext}

@@ -275,6 +275,7 @@ export default function FTIDigitalTwinPrototype() {
           <LessonRunner
             lesson={lesson.activeLesson}
             stepIndex={lesson.stepIndex}
+            awaitingNext={lesson.awaitingNext}
             onNext={lesson.next}
             onStop={lesson.stop}
           />

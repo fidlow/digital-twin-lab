@@ -12,7 +12,7 @@ export function LessonPicker({ activeLessonId, onStart, onStop }: LessonPickerPr
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold">Учебные истории</h2>
+        <h2 className="text-lg font-semibold">Учебные сценарии</h2>
         {activeLessonId && (
           <button
             type="button"
