@@ -173,7 +173,6 @@ export default function FTIDigitalTwinPrototype() {
             <div className="mt-2">
               <ForecastLegend showWhatIf={previewMode} onInfo={setExplanationKey} />
             </div>
-            <DiagnosticsCard rec={rec} ev={ev} />
           </div>
 
           <ControlsPanel
@@ -186,6 +185,10 @@ export default function FTIDigitalTwinPrototype() {
             previewControls={previewControls}
             onPreviewControls={setPreviewControls}
           />
+        </section>
+
+        <section>
+          <DiagnosticsCard rec={rec} ev={ev} />
         </section>
 
         <section>
