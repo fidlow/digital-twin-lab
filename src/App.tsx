@@ -12,11 +12,21 @@ import { MetricCards } from "./components/MetricCards";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { HotkeysOverlay } from "./components/HotkeysOverlay";
 import { ForecastLegend } from "./components/ForecastLegend";
+import { LessonPicker } from "./components/LessonPicker";
+import { LessonRunner } from "./components/LessonRunner";
+import { ExplanationDrawer } from "./components/ExplanationDrawer";
+import { DifficultyProvider, type Difficulty } from "./contexts/DifficultyContext";
+import { DifficultyToggle } from "./components/DifficultyToggle";
+import { useQuiz } from "./hooks/useQuiz";
+import { QuizOverlay } from "./components/QuizOverlay";
+import { QUIZZES } from "./lessons/quizzes";
+import { useLessonRunner } from "./hooks/useLessonRunner";
 import { PresenterProvider } from "./contexts/PresenterContext";
 
 export default function FTIDigitalTwinPrototype() {
   const [kiosk, setKiosk] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [difficulty, setDifficulty] = useState<Difficulty>("basic");
 
   const sim = useSimulation({
     kiosk,
@@ -33,6 +43,7 @@ export default function FTIDigitalTwinPrototype() {
   const [showHotkeys, setShowHotkeys] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [previewControls, setPreviewControls] = useState(controls);
+  const [explanationKey, setExplanationKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!previewMode) setPreviewControls(controls);
@@ -40,6 +51,26 @@ export default function FTIDigitalTwinPrototype() {
 
   const whatIfFc = previewMode ? sim.forecastWith(previewControls) : undefined;
   const baselineFc = sim.forecastWith(DEFAULT_CONTROLS);
+
+  const lesson = useLessonRunner({
+    setMode: sim.setMode,
+    setControls: (next) => sim.setControls(next),
+    setPreview: setPreviewMode,
+    getRisk: () => sim.ev.score,
+    getTemperature: () => sim.latest.t,
+  });
+
+  const quiz = useQuiz({
+    host: {
+      setMode: sim.setMode,
+      setControls: (next) => sim.setControls(next),
+      setPreview: setPreviewMode,
+      getRisk: () => sim.ev.score,
+      getTemperature: () => sim.latest.t,
+    },
+    pause: () => sim.setRunning(false),
+    resume: () => sim.setRunning(true),
+  });
 
   useHotkeys({
     "1": () => setMode("normal"),
@@ -78,6 +109,7 @@ export default function FTIDigitalTwinPrototype() {
   }
 
   return (
+    <DifficultyProvider value={difficulty}>
     <PresenterProvider value={kiosk}>
       <div
           className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-6"
@@ -100,6 +132,7 @@ export default function FTIDigitalTwinPrototype() {
               </svg>
               {kiosk ? "Выйти из полноэкранного режима" : "Полный экран"}
             </button>
+            <DifficultyToggle value={difficulty} onChange={setDifficulty} />
           </div>
           <h1 className="text-3xl font-semibold sm:text-5xl">Цифровой двойник лабораторной установки</h1>
           <p className="mt-4 max-w-3xl text-slate-300">Потоковая телеметрия, сценарии отказов, объяснимая диагностика и журнал событий.</p>
@@ -117,7 +150,7 @@ export default function FTIDigitalTwinPrototype() {
           </div>
         )}
 
-        <MetricCards mode={mode} latest={latest} riskResult={r} ev={ev} />
+        <MetricCards mode={mode} latest={latest} riskResult={r} ev={ev} onInfo={setExplanationKey} />
 
         <section className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
           <div className="rounded-3xl bg-white p-5 shadow-sm">
@@ -138,23 +171,25 @@ export default function FTIDigitalTwinPrototype() {
               <ForecastLegend showWhatIf={previewMode} />
             </div>
 
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-3 flex items-baseline justify-between gap-3">
-                <h3 className="text-sm font-semibold text-slate-900">Расчёт параметров</h3>
-                <p className="text-xs text-slate-500">k — номер тика, Δt = 300 мс, ε — измерительный шум</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {FORMULAS.map(([name, formula, note]) => (
-                  <div key={name} className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{name}</p>
-                    <div className="mt-1 text-slate-900">
-                      <Tex display wrap>{formula}</Tex>
+            {difficulty === "advanced" && (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-3 flex items-baseline justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-slate-900">Расчёт параметров</h3>
+                  <p className="text-xs text-slate-500">k — номер тика, Δt = 300 мс, ε — измерительный шум</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {FORMULAS.map(([name, formula, note]) => (
+                    <div key={name} className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{name}</p>
+                      <div className="mt-1 text-slate-900">
+                        <Tex display wrap>{formula}</Tex>
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <ControlsPanel
@@ -171,9 +206,17 @@ export default function FTIDigitalTwinPrototype() {
           />
         </section>
 
+        <section>
+          <LessonPicker
+            activeLessonId={lesson.activeLesson?.id ?? null}
+            onStart={lesson.start}
+            onStop={lesson.stop}
+          />
+        </section>
+
         <TheorySection />
 
-        <section className="grid gap-3 sm:grid-cols-2">
+        <section className="grid gap-3 sm:grid-cols-3">
           <SnapshotControls
             snapshots={snapshots}
             snapshotIndex={snapshotIndex}
@@ -188,6 +231,21 @@ export default function FTIDigitalTwinPrototype() {
             onStart={startReplay}
             onStop={stopReplay}
           />
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 shadow-sm">
+            <p className="mb-2 text-xs font-semibold text-amber-900">🎓 Quiz-режим</p>
+            <div className="flex flex-wrap gap-2">
+              {QUIZZES.map((q) => (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => quiz.start(q)}
+                  className="rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700"
+                >
+                  {q.id}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section>
@@ -209,8 +267,24 @@ export default function FTIDigitalTwinPrototype() {
         </section>
 
         <HotkeysOverlay open={showHotkeys} onClose={() => setShowHotkeys(false)} />
+        <ExplanationDrawer openKey={explanationKey} onClose={() => setExplanationKey(null)} />
+        <QuizOverlay
+          quiz={quiz.active}
+          outcome={quiz.outcome}
+          onChoose={quiz.choose}
+          onDismiss={quiz.dismiss}
+        />
+        {lesson.activeLesson && (
+          <LessonRunner
+            lesson={lesson.activeLesson}
+            stepIndex={lesson.stepIndex}
+            onNext={lesson.next}
+            onStop={lesson.stop}
+          />
+        )}
         </div>
       </div>
     </PresenterProvider>
+    </DifficultyProvider>
   );
 }

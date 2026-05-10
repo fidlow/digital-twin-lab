@@ -20,6 +20,10 @@ export function ForecastLegend({ showWhatIf }: ForecastLegendProps) {
           What-if (превью)
         </span>
       )}
+      <span className="inline-flex items-center gap-1.5 text-slate-500">
+        <span className="inline-block h-2.5 w-5 rounded bg-indigo-200" />
+        Полоса ±1σ ≈ 68% — диапазон возможных значений
+      </span>
     </div>
   );
 }

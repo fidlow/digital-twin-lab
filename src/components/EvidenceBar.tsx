@@ -1,5 +1,6 @@
 // src/components/EvidenceBar.tsx
 import { evidenceWeights, type EvidenceResult } from "../models/digitalTwin";
+import { useDifficulty } from "../contexts/DifficultyContext";
 
 interface EvidenceBarProps {
   ev: EvidenceResult;
@@ -12,6 +13,7 @@ const TONE_FILL: Record<string, string> = {
 };
 
 export function EvidenceBar({ ev }: EvidenceBarProps) {
+  const difficulty = useDifficulty();
   const weights = evidenceWeights(ev);
 
   if (weights.length === 0) {
@@ -40,14 +42,16 @@ export function EvidenceBar({ ev }: EvidenceBarProps) {
           />
         ))}
       </div>
-      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
-        {weights.map((w) => (
-          <li key={w.key} className="inline-flex items-center gap-1.5">
-            <span className={`inline-block h-2 w-2 rounded-full ${TONE_FILL[w.tone] ?? "bg-slate-400"}`} />
-            {w.label} <span className="text-slate-400">— {w.percent}%</span>
-          </li>
-        ))}
-      </ul>
+      {difficulty === "advanced" && (
+        <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
+          {weights.map((w) => (
+            <li key={w.key} className="inline-flex items-center gap-1.5">
+              <span className={`inline-block h-2 w-2 rounded-full ${TONE_FILL[w.tone] ?? "bg-slate-400"}`} />
+              {w.label} <span className="text-slate-400">— {w.percent}%</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="mt-2 text-xs text-slate-700">
         <b>Главная причина:</b> {top.label} ({top.percent}%).
       </p>

@@ -170,6 +170,7 @@ export function TelemetryChart({ rows, fc, whatIfFc, baselineFc, running, last }
       <text x={PAD.l + 12} y={PAD.t + ph - 12} fontSize="14" fontWeight="700" fill="#475569">история</text>
       <text x={nowX + 8} y={PAD.t + 22} fontSize="13" fontWeight="800" fill="#4f46e5" letterSpacing="0.06em">ПРОГНОЗ</text>
       <text x={nowX + 8} y={PAD.t + 40} fontSize="11" fontWeight="600" fill="#6366f1">экстраполяция модели</text>
+      <text x={nowX + 8} y={PAD.t + 56} fontSize="10" fontWeight="500" fill="#94a3b8">±1σ ≈ 68% коридор</text>
 
       {[0, 30, 60, 90].map((back) => {
         const xx = nowX - back * (pwH / (N - 1));

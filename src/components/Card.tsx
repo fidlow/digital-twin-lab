@@ -12,16 +12,29 @@ export interface CardProps {
   unit: string;
   tone: string;
   hint: string;
+  infoKey?: string;
+  onInfo?: (key: string) => void;
 }
 
-export function Card({ title, value, unit, tone, hint }: CardProps) {
+export function Card({ title, value, unit, tone, hint, infoKey, onInfo }: CardProps) {
   const presenter = usePresenter();
   const sizeValue = presenter ? "text-4xl" : "text-2xl";
   const sizeUnit = presenter ? "text-base" : "text-sm";
   const sizeTitle = presenter ? "text-sm" : "text-xs";
   const sizeHint = presenter ? "text-sm" : "text-xs";
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${toneClass(tone)}`}>
+    <div className={`relative rounded-2xl border p-4 shadow-sm ${toneClass(tone)}`}>
+      {infoKey && onInfo && (
+        <button
+          type="button"
+          onClick={() => onInfo(infoKey)}
+          className="absolute right-2 top-2 rounded-full bg-white/70 px-1.5 text-[11px] font-semibold text-slate-700 hover:bg-white"
+          aria-label="Объяснение"
+          title="Открыть объяснение"
+        >
+          ?
+        </button>
+      )}
       <p className={`${sizeTitle} uppercase opacity-70`}>{title}</p>
       <p className={`mt-2 ${sizeValue} font-semibold`}>
         {value} <span className={sizeUnit}>{unit}</span>
