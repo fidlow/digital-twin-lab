@@ -8,7 +8,7 @@ export const QUIZZES: Quiz[] = [
     options: [
       { label: "Снизить мощность", action: { kind: "setControls", controls: { heater: 0.6, cooling: 0 } }, outcome: "Правильно — уменьшаем источник тепла, риск падает." },
       { label: "Повысить мощность", action: { kind: "setControls", controls: { heater: 1.4, cooling: 0 } }, outcome: "Антипаттерн: больше тока — больше нагрев, риск растёт быстрее." },
-      { label: "Повысить нагрузку", action: { kind: "setControls", controls: { heater: 1.2, cooling: 0 } }, outcome: "Не помогает: дополнительная нагрузка только усиливает перегрев." },
+      { label: "Повысить нагрузку", action: { kind: "noop" }, outcome: "Не помогает: дополнительная нагрузка только усиливает перегрев." },
     ],
   },
   {
@@ -17,7 +17,7 @@ export const QUIZZES: Quiz[] = [
     options: [
       { label: "Калибровать датчик", action: { kind: "noop" }, outcome: "В реальной установке — да. В двойнике мы можем только наблюдать дрейф." },
       { label: "Поднять охлаждение", action: { kind: "setControls", controls: { heater: 1, cooling: 0.7 } }, outcome: "Не помогает: дрейф не связан с температурой." },
-      { label: "Сменить сценарий на «Норма»", action: { kind: "setMode", mode: "normal" }, outcome: "Учебно: показываем, что устранение причины убирает дрейф." },
+      { label: "Внести программную поправку", action: { kind: "noop" }, outcome: "Маскирует симптом, но не устраняет причину — датчик всё равно нужно калибровать или менять." },
     ],
   },
 ];
