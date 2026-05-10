@@ -33,7 +33,6 @@ export function MetricCards({ mode, latest, riskResult, ev, onInfo }: MetricCard
         {onInfo && helpButton("scenario")}
         <p className={`${sizeMeta} uppercase opacity-70`}>Сценарий</p>
         <p className={`mt-2 ${sizeName} font-semibold leading-tight`}>{SCENARIOS[mode][0]}</p>
-        <p className={`mt-2 ${sizeMeta} opacity-80`}>{SCENARIOS[mode][1]}</p>
       </div>
       <div className={`relative rounded-2xl border p-4 shadow-sm ${toneClass(riskResult[1])}`}>
         {onInfo && helpButton("risk")}

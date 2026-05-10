@@ -5,6 +5,7 @@ export type LessonAction =
   | { kind: "setMode"; mode: ModeKey }
   | { kind: "setControls"; controls: Controls }
   | { kind: "setPreview"; on: boolean }
+  | { kind: "pause" }
   | { kind: "noop" };
 
 export type LessonCondition =
@@ -18,6 +19,7 @@ export interface LessonStep {
   text: string;
   action?: LessonAction;
   delayedAction?: { delayMs: number; action: LessonAction };
+  onAdvance?: LessonAction;
   advanceOn: LessonCondition;
 }
 

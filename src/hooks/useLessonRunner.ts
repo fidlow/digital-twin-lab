@@ -39,6 +39,7 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
     if (action.kind === "setMode") h.setMode(action.mode);
     else if (action.kind === "setControls") h.setControls(action.controls);
     else if (action.kind === "setPreview") h.setPreview(action.on);
+    else if (action.kind === "pause") h.pause();
   }, []);
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
       else if (cond.kind === "tempAtLeast") ready = hostRef.current.getTemperature() >= cond.threshold;
       else if (cond.kind === "tempAtMost") ready = hostRef.current.getTemperature() <= cond.threshold;
       if (ready) {
+        applyAction(step.onAdvance);
         setAwaitingNext(true);
         hostRef.current.pause();
         clearInterval(id);
@@ -83,9 +85,11 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
 
   const next = useCallback(() => {
     if (!activeLesson) return;
+    const step = activeLesson.steps[stepIndex];
+    if (step?.advanceOn.kind === "manual") applyAction(step.onAdvance);
     setStepIndex((i) => Math.min(i + 1, activeLesson.steps.length));
     hostRef.current.resume();
-  }, [activeLesson]);
+  }, [activeLesson, stepIndex, applyAction]);
 
   const stop = useCallback(() => {
     setActiveLesson(null);
