@@ -11,11 +11,13 @@ export type LessonCondition =
   | { kind: "manual" }
   | { kind: "delay"; ms: number }
   | { kind: "riskAtLeast"; threshold: number }
-  | { kind: "tempAtLeast"; threshold: number };
+  | { kind: "tempAtLeast"; threshold: number }
+  | { kind: "tempAtMost"; threshold: number };
 
 export interface LessonStep {
   text: string;
   action?: LessonAction;
+  delayedAction?: { delayMs: number; action: LessonAction };
   advanceOn: LessonCondition;
 }
 

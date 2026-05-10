@@ -42,11 +42,15 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
   }, []);
 
   useEffect(() => {
-    if (!activeLesson) return;
+    if (!activeLesson) return undefined;
     const step = activeLesson.steps[stepIndex];
-    if (!step) return;
+    if (!step) return undefined;
     applyAction(step.action);
     setAwaitingNext(false);
+    if (!step.delayedAction) return undefined;
+    const { delayMs, action } = step.delayedAction;
+    const id = setTimeout(() => applyAction(action), delayMs);
+    return () => clearTimeout(id);
   }, [activeLesson, stepIndex, applyAction]);
 
   useEffect(() => {
@@ -61,6 +65,7 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
       if (cond.kind === "delay") ready = Date.now() - enteredAt >= cond.ms;
       else if (cond.kind === "riskAtLeast") ready = hostRef.current.getRisk() >= cond.threshold;
       else if (cond.kind === "tempAtLeast") ready = hostRef.current.getTemperature() >= cond.threshold;
+      else if (cond.kind === "tempAtMost") ready = hostRef.current.getTemperature() <= cond.threshold;
       if (ready) {
         setAwaitingNext(true);
         hostRef.current.pause();
