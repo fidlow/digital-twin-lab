@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { DEFAULT_CONTROLS, FORMULAS } from "./models/digitalTwin";
+import { DEFAULT_CONTROLS } from "./models/digitalTwin";
 import { useSimulation } from "./hooks/useSimulation";
 import { useHotkeys } from "./hooks/useHotkeys";
 import { TheorySection } from "./components/TheorySection";
 import { ScenarioTimeline } from "./components/ScenarioTimeline";
 import { SnapshotControls } from "./components/SnapshotControls";
 import { ReplayControls } from "./components/ReplayControls";
-import { Tex } from "./components/Tex";
 import { TelemetryChart } from "./components/TelemetryChart";
 import { MetricCards } from "./components/MetricCards";
 import { ControlsPanel } from "./components/ControlsPanel";
@@ -171,25 +170,7 @@ export default function FTIDigitalTwinPrototype() {
               <TelemetryChart rows={chart} fc={fc} whatIfFc={whatIfFc} baselineFc={baselineFc} running={running} last={last} />
             </div>
             <div className="mt-2">
-              <ForecastLegend showWhatIf={previewMode} />
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-3 flex items-baseline justify-between gap-3">
-                <h3 className="text-sm font-semibold text-slate-900">Расчёт параметров</h3>
-                <p className="text-xs text-slate-500">k — номер тика, Δt = 300 мс, ε — измерительный шум</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {FORMULAS.map(([name, formula, note]) => (
-                  <div key={name} className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{name}</p>
-                    <div className="mt-1 text-slate-900">
-                      <Tex display wrap>{formula}</Tex>
-                    </div>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
-                  </div>
-                ))}
-              </div>
+              <ForecastLegend showWhatIf={previewMode} onInfo={setExplanationKey} />
             </div>
           </div>
 
