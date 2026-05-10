@@ -184,7 +184,7 @@ export function TheorySection() {
             </TheoryBlock>
 
             <TheoryBlock
-              title="Сценарии отказов и интегральный показатель риска"
+              title="Эмуляция отказа и интегральный показатель риска"
               summary="Каждый из пяти сценариев представляет собой возмущение базовой модели. Интегральный показатель риска осуществляет непрерывную агрегацию превышений установленных порогов."
               formula={String.raw`R = \mathrm{clamp}\!\left(\sum_i r_i,\,0,\,100\right), \quad r_i = \mathrm{clamp}\!\left(\frac{v_i - v_i^{\text{пред}}}{v_i^{\text{ав}} - v_i^{\text{пред}}}\cdot 35 + b_i,\,0,\,60\right)`}
             >
