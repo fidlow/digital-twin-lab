@@ -19,7 +19,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
     formula: String.raw`R = \sum_i r_i,\quad 0 \le R \le 100`,
     body: "Сумма вкладов rᵢ от каждого параметра, превысившего порог. Полоса «Вклад в риск» в Диагностике показывает, как именно собирается это число. Главная причина — самый крупный вклад.",
     constants: [
-      { name: "Порог warning", value: "паспортный нижний предел", note: "из таблицы LIMITS в digitalTwin" },
+      { name: "Порог warning", value: "паспортный нижний предел" },
       { name: "Порог alarm", value: "паспортный верхний предел" },
     ],
   },
