@@ -24,7 +24,7 @@ export function ScenarioTimeline({ log, onSnapshot }: ScenarioTimelineProps) {
         </button>
       </div>
       <p className="mt-1 text-xs text-slate-500">
-        История твоих действий на лекции. Снимок — закладка, к которой можно вернуться обсудить.
+        История действий. Снимок — закладка, к которой можно вернуться обсудить.
       </p>
       {log.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-dashed p-5 text-sm text-slate-500">
