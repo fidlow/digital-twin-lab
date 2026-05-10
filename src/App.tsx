@@ -15,8 +15,6 @@ import { ForecastLegend } from "./components/ForecastLegend";
 import { LessonPicker } from "./components/LessonPicker";
 import { LessonRunner } from "./components/LessonRunner";
 import { ExplanationDrawer } from "./components/ExplanationDrawer";
-import { DifficultyProvider, type Difficulty } from "./contexts/DifficultyContext";
-import { DifficultyToggle } from "./components/DifficultyToggle";
 import { useQuiz } from "./hooks/useQuiz";
 import { QuizOverlay } from "./components/QuizOverlay";
 import { QUIZZES } from "./lessons/quizzes";
@@ -26,7 +24,6 @@ import { PresenterProvider } from "./contexts/PresenterContext";
 export default function FTIDigitalTwinPrototype() {
   const [kiosk, setKiosk] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
-  const [difficulty, setDifficulty] = useState<Difficulty>("basic");
 
   const sim = useSimulation({
     kiosk,
@@ -109,7 +106,6 @@ export default function FTIDigitalTwinPrototype() {
   }
 
   return (
-    <DifficultyProvider value={difficulty}>
     <PresenterProvider value={kiosk}>
       <div
           className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-6"
@@ -132,7 +128,6 @@ export default function FTIDigitalTwinPrototype() {
               </svg>
               {kiosk ? "Выйти из полноэкранного режима" : "Полный экран"}
             </button>
-            <DifficultyToggle value={difficulty} onChange={setDifficulty} />
           </div>
           <h1 className="text-3xl font-semibold sm:text-5xl">Цифровой двойник лабораторной установки</h1>
           <p className="mt-4 max-w-3xl text-slate-200">
@@ -179,25 +174,23 @@ export default function FTIDigitalTwinPrototype() {
               <ForecastLegend showWhatIf={previewMode} />
             </div>
 
-            {difficulty === "advanced" && (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-3 flex items-baseline justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-slate-900">Расчёт параметров</h3>
-                  <p className="text-xs text-slate-500">k — номер тика, Δt = 300 мс, ε — измерительный шум</p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {FORMULAS.map(([name, formula, note]) => (
-                    <div key={name} className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{name}</p>
-                      <div className="mt-1 text-slate-900">
-                        <Tex display wrap>{formula}</Tex>
-                      </div>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
-                    </div>
-                  ))}
-                </div>
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-3 flex items-baseline justify-between gap-3">
+                <h3 className="text-sm font-semibold text-slate-900">Расчёт параметров</h3>
+                <p className="text-xs text-slate-500">k — номер тика, Δt = 300 мс, ε — измерительный шум</p>
               </div>
-            )}
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {FORMULAS.map(([name, formula, note]) => (
+                  <div key={name} className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{name}</p>
+                    <div className="mt-1 text-slate-900">
+                      <Tex display wrap>{formula}</Tex>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <ControlsPanel
@@ -293,6 +286,5 @@ export default function FTIDigitalTwinPrototype() {
         </div>
       </div>
     </PresenterProvider>
-    </DifficultyProvider>
   );
 }
