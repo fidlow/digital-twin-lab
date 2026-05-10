@@ -296,6 +296,16 @@ export function forecast(rows: DataPoint[], mode: ModeKey, controls: Controls, s
   return out;
 }
 
+// ─── Шаг симуляции для UI ─────────────────────────────────────────────────────
+// Чистая функция: принимает текущие N точек, mode и controls; возвращает новый
+// ряд из N точек со сдвигом на один тик. Используется хуком useSimulation, тогда
+// тестируется здесь же, не требуя React-окружения.
+export function appendTick(rows: DataPoint[], mode: ModeKey, controls: Controls): DataPoint[] {
+  const last = rows[rows.length - 1]!;
+  const next = point(last.k + 1, mode, last, controls);
+  return [...rows.slice(-(N - 1)), next];
+}
+
 // ─── Координатные функции SVG ─────────────────────────────────────────────────
 
 export function sx(idx: number, len: number, phase: number, plotW: number): number {
@@ -338,7 +348,8 @@ export function runTests() {
   console.assert(hoverValue({ ...n, p: 0.03, pChart: 30, label: 0 }, "pChart") === 0.03, "hover should show real pressure value");
   console.assert(hoverUnit(SERIES[0]!) === "°C", "series should expose units for tooltip");
 
-  const sample = point(1, "normal", n);
+  // quiet:true глушит шум и cyc-синусы — иначе rnd(i, 2) и rnd(24·i, 1) могут разъехаться на 0.1.
+  const sample = point(1, "normal", n, DEFAULT_CONTROLS, { quiet: true });
   console.assert(sample.w === rnd(sample.i * HEATER_U, 1), "heater power formula");
 
   const hot1 = point(1, "thermal", { ...n, i: 3.1, t: 60 });
@@ -357,7 +368,8 @@ export function runTests() {
   const heaterCold = point(1, "normal", { ...n, t: 70 }, DEFAULT_CONTROLS);
   console.assert(heaterHot.t > heaterCold.t, "heater should raise temperature even in normal mode");
 
-  const thermalMinHeater = point(1, "thermal", { ...n, t: 70, i: 2 }, { heater: 0.6, cooling: 0 });
+  // quiet:true делает тест детерминированным: без шума Δt ≈ +0.1 °C, с шумом ±0.17 °C иногда уходит ниже 70.
+  const thermalMinHeater = point(1, "thermal", { ...n, t: 70, i: 2 }, { heater: 0.6, cooling: 0 }, { quiet: true });
   console.assert(thermalMinHeater.t > 70, "thermal injects external heat even when heater is at minimum");
 
   const thermalCooled = point(1, "thermal", { ...n, t: 80, i: 3 }, { heater: 1, cooling: 1 });
@@ -374,4 +386,14 @@ export function runTests() {
   const fcNoCool = forecast([{ ...n, k: 0, t: 80 }], "thermal", DEFAULT_CONTROLS, 10);
   console.assert(fcCool[9]!.t < fcNoCool[9]!.t, "cooling slider should bend forecast downward");
   console.assert(fcCool[0]!.pChart === rnd(fcCool[0]!.p * 1000, 2), "forecast pChart should mirror p scaling");
+
+  // appendTick — чистая функция шага симуляции
+  const seedRows = seed();
+  const tickedNormal = appendTick(seedRows, "normal", DEFAULT_CONTROLS);
+  console.assert(tickedNormal.length === N, "appendTick keeps buffer length at N");
+  console.assert(tickedNormal[N - 1]!.k === seedRows[N - 1]!.k + 1, "appendTick increments k by 1");
+  console.assert(tickedNormal[N - 2]!.k === seedRows[N - 1]!.k, "appendTick drops oldest point");
+  const tickedThermalHot = appendTick(seedRows, "thermal", { heater: 1.6, cooling: 0 });
+  const tickedThermalCool = appendTick(seedRows, "thermal", { heater: 0.6, cooling: 1 });
+  console.assert(tickedThermalHot[N - 1]!.t > tickedThermalCool[N - 1]!.t, "appendTick respects controls in thermal mode");
 }
