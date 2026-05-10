@@ -15,9 +15,10 @@ import {
   SCENARIOS,
   type Controls,
   type DataPoint,
+  type ForecastPoint,
   type ModeKey,
 } from "../models/digitalTwin";
-import type { EventItem, ScenarioLogEntry } from "../types/ui";
+import type { DecisionAction, EventItem, ScenarioLogEntry, SnapshotEntry } from "../types/ui";
 
 export interface UseSimulationResult {
   mode: ModeKey;
@@ -38,6 +39,16 @@ export interface UseSimulationResult {
   bumpIdle: () => void;
   log: ScenarioLogEntry[];
   snapshot: (label?: string) => void;
+  forecastWith: (controls: Controls, steps?: number) => ForecastPoint[];
+  snapshots: SnapshotEntry[];
+  snapshotIndex: number;
+  undo: () => void;
+  redo: () => void;
+  restoreSnapshot: (idx: number) => void;
+  actions: DecisionAction[];
+  replayActive: boolean;
+  startReplay: () => void;
+  stopReplay: () => void;
 }
 
 export interface UseSimulationOptions {
@@ -53,6 +64,10 @@ export function useSimulation({ kiosk, onIdleReset }: UseSimulationOptions): Use
   const [last, setLast] = useState(Date.now());
   const [controls, setControls] = useState<Controls>(DEFAULT_CONTROLS);
   const [log, setLog] = useState<ScenarioLogEntry[]>([]);
+  const [snapshots, setSnapshots] = useState<SnapshotEntry[]>([]);
+  const [snapshotIndex, setSnapshotIndex] = useState<number>(-1);
+  const [actions, setActions] = useState<DecisionAction[]>([]);
+  const [replayActive, setReplayActive] = useState(false);
   const idleRef = useRef(Date.now());
 
   const latest = data[data.length - 1]!;
@@ -62,6 +77,11 @@ export function useSimulation({ kiosk, onIdleReset }: UseSimulationOptions): Use
   const ev = useMemo(() => evidence(latest), [latest]);
   const rec = useMemo(() => advice(mode, riskResult), [mode, riskResult]);
 
+  const forecastWith = useCallback(
+    (altControls: Controls, steps?: number) => forecast(data, mode, altControls, steps),
+    [data, mode]
+  );
+
   // Симуляционный интервал зависит только от mode/running — слайдеры читаются через ref.
   const controlsRef = useRef(controls);
   controlsRef.current = controls;
@@ -69,6 +89,22 @@ export function useSimulation({ kiosk, onIdleReset }: UseSimulationOptions): Use
   // Stable ref so appendLog closures always read the latest DataPoint without re-creating.
   const latestRef = useRef<DataPoint>(latest);
   latestRef.current = latest;
+
+  // Refs for full-state snapshot capture (avoid recreating callbacks on every render).
+  const dataRef = useRef<DataPoint[]>(data);
+  dataRef.current = data;
+  const modeRef = useRef<ModeKey>(mode);
+  modeRef.current = mode;
+  const eventsRef = useRef<EventItem[]>(events);
+  eventsRef.current = events;
+  const snapshotsRef = useRef<SnapshotEntry[]>(snapshots);
+  snapshotsRef.current = snapshots;
+  const snapshotIndexRef = useRef<number>(snapshotIndex);
+  snapshotIndexRef.current = snapshotIndex;
+  const actionsRef = useRef<DecisionAction[]>(actions);
+  actionsRef.current = actions;
+  const replayActiveRef = useRef<boolean>(replayActive);
+  replayActiveRef.current = replayActive;
 
   useEffect(() => {
     if (!running) return undefined;
@@ -105,7 +141,18 @@ export function useSimulation({ kiosk, onIdleReset }: UseSimulationOptions): Use
   const setModeLogged = useCallback<(mode: ModeKey) => void>((next) => {
     setMode(next);
     appendLog("scenario", SCENARIOS[next][0]);
+    if (!replayActiveRef.current) {
+      setActions((cur) => [...cur, { ts: Date.now(), mode: next }].slice(-200));
+    }
   }, [appendLog]);
+
+  const setControlsTracked = useCallback<React.Dispatch<React.SetStateAction<Controls>>>((next) => {
+    setControls(next);
+    if (!replayActiveRef.current) {
+      const resolved = typeof next === "function" ? (next as (prev: Controls) => Controls)(controlsRef.current) : next;
+      setActions((cur) => [...cur, { ts: Date.now(), controls: resolved }].slice(-200));
+    }
+  }, []);
 
   const reset = useCallback(() => {
     setMode("normal");
@@ -114,12 +161,94 @@ export function useSimulation({ kiosk, onIdleReset }: UseSimulationOptions): Use
     setLast(Date.now());
     setRunning(true);
     setControls(DEFAULT_CONTROLS);
+    setSnapshots([]);
+    setSnapshotIndex(-1);
+    setActions([]);
     appendLog("reset", "Сброс симуляции");
   }, [appendLog]);
 
   const snapshot = useCallback((label: string = "Снимок состояния") => {
+    const entry: SnapshotEntry = {
+      ts: Date.now(),
+      label,
+      data: dataRef.current,
+      controls: controlsRef.current,
+      mode: modeRef.current,
+      events: eventsRef.current,
+    };
+    setSnapshots((cur) => [...cur.slice(0, snapshotIndexRef.current + 1), entry]);
+    setSnapshotIndex((idx) => idx + 1);
     appendLog("snapshot", label);
   }, [appendLog]);
+
+  const restoreSnapshot = useCallback((idx: number) => {
+    const entry = snapshotsRef.current[idx];
+    if (!entry) return;
+    setData(entry.data);
+    setControls(entry.controls);
+    setMode(entry.mode);
+    setEvents(entry.events);
+    setSnapshotIndex(idx);
+    setLast(Date.now());
+    appendLog("snapshot", `Откат к: ${entry.label}`);
+  }, [appendLog]);
+
+  const undo = useCallback(() => {
+    const target = snapshotIndexRef.current - 1;
+    if (target < 0) return;
+    restoreSnapshot(target);
+  }, [restoreSnapshot]);
+
+  const redo = useCallback(() => {
+    const target = snapshotIndexRef.current + 1;
+    if (target >= snapshotsRef.current.length) return;
+    restoreSnapshot(target);
+  }, [restoreSnapshot]);
+
+  const replayCursorRef = useRef<number>(0);
+  const replayStartTsRef = useRef<number>(0);
+  const replayBaseTsRef = useRef<number>(0);
+
+  const stopReplay = useCallback(() => {
+    setReplayActive(false);
+    replayCursorRef.current = 0;
+  }, []);
+
+  const startReplay = useCallback(() => {
+    if (actionsRef.current.length === 0) return;
+    setData(seed());
+    setEvents([]);
+    setLast(Date.now());
+    setMode("normal");
+    setControls(DEFAULT_CONTROLS);
+    setReplayActive(true);
+    replayCursorRef.current = 0;
+    replayStartTsRef.current = Date.now();
+    replayBaseTsRef.current = actionsRef.current[0]!.ts;
+    appendLog("snapshot", "▶ Воспроизведение начато");
+  }, [appendLog]);
+
+  useEffect(() => {
+    if (!replayActive) return undefined;
+    const id = setInterval(() => {
+      const elapsed = Date.now() - replayStartTsRef.current;
+      const list = actionsRef.current;
+      while (replayCursorRef.current < list.length) {
+        const a = list[replayCursorRef.current]!;
+        const offset = a.ts - replayBaseTsRef.current;
+        if (offset > elapsed) break;
+        if (a.mode !== undefined) setMode(a.mode);
+        if (a.controls !== undefined) setControls(a.controls);
+        replayCursorRef.current += 1;
+      }
+      if (replayCursorRef.current >= list.length) {
+        setReplayActive(false);
+        replayCursorRef.current = 0;
+        appendLog("snapshot", "⏹ Воспроизведение завершено");
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [replayActive, appendLog]);
 
   const bumpIdle = useCallback(() => {
     idleRef.current = Date.now();
@@ -145,7 +274,7 @@ export function useSimulation({ kiosk, onIdleReset }: UseSimulationOptions): Use
     setRunning,
     latest,
     controls,
-    setControls,
+    setControls: setControlsTracked,
     events,
     last,
     chart,
@@ -157,5 +286,15 @@ export function useSimulation({ kiosk, onIdleReset }: UseSimulationOptions): Use
     bumpIdle,
     log,
     snapshot,
+    forecastWith,
+    snapshots,
+    snapshotIndex,
+    undo,
+    redo,
+    restoreSnapshot,
+    actions,
+    replayActive,
+    startReplay,
+    stopReplay,
   };
 }

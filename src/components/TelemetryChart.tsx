@@ -23,6 +23,8 @@ import {
 interface TelemetryChartProps {
   rows: ChartDataPoint[];
   fc: ForecastPoint[];
+  whatIfFc?: ForecastPoint[];
+  baselineFc?: ForecastPoint[];
   running: boolean;
   last: number;
 }
@@ -33,7 +35,7 @@ const FORECAST_META: Record<(typeof FORECAST_KEYS)[number], { color: string; dom
   pChart: { color: SERIES.find((s) => s[0] === "pChart")![2], domain: SERIES.find((s) => s[0] === "pChart")![3], width: 2 },
 };
 
-export function TelemetryChart({ rows, fc, running, last }: TelemetryChartProps) {
+export function TelemetryChart({ rows, fc, whatIfFc, baselineFc, running, last }: TelemetryChartProps) {
   const ref = useRef<SVGSVGElement>(null);
   const [now, setNow] = useState(Date.now());
   const [hover, setHover] = useState<number | null>(null);
@@ -70,6 +72,15 @@ export function TelemetryChart({ rows, fc, running, last }: TelemetryChartProps)
     const domain = FORECAST_META[key].domain;
     const segments = [`M${x(lastIdx).toFixed(1)},${y(lastRow[key] as number, domain).toFixed(1)}`];
     for (const fp of fc) {
+      segments.push(`L${xFc(fp.step).toFixed(1)},${y(fp[key], domain).toFixed(1)}`);
+    }
+    return segments.join(" ");
+  };
+  const altForecastPath = (alt: ForecastPoint[], key: (typeof FORECAST_KEYS)[number]): string => {
+    if (!alt.length || !lastRow) return "";
+    const domain = FORECAST_META[key].domain;
+    const segments = [`M${x(lastIdx).toFixed(1)},${y(lastRow[key] as number, domain).toFixed(1)}`];
+    for (const fp of alt) {
       segments.push(`L${xFc(fp.step).toFixed(1)},${y(fp[key], domain).toFixed(1)}`);
     }
     return segments.join(" ");
@@ -128,6 +139,30 @@ export function TelemetryChart({ rows, fc, running, last }: TelemetryChartProps)
         ))}
         {FORECAST_KEYS.map((key) => (
           <path key={`fc-${key}`} d={forecastPath(key)} fill="none" stroke={FORECAST_META[key].color} strokeWidth={FORECAST_META[key].width} strokeLinecap="round" strokeDasharray="6 5" opacity="0.6" />
+        ))}
+        {whatIfFc && whatIfFc.length > 0 && FORECAST_KEYS.map((key) => (
+          <path
+            key={`whatif-${key}`}
+            d={altForecastPath(whatIfFc, key)}
+            fill="none"
+            stroke="#64748b"
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeDasharray="3 4"
+            opacity="0.85"
+          />
+        ))}
+        {baselineFc && baselineFc.length > 0 && FORECAST_KEYS.map((key) => (
+          <path
+            key={`baseline-${key}`}
+            d={altForecastPath(baselineFc, key)}
+            fill="none"
+            stroke="#94a3b8"
+            strokeWidth={1.4}
+            strokeLinecap="round"
+            strokeDasharray="1 4"
+            opacity="0.7"
+          />
         ))}
       </g>
 

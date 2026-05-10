@@ -1,3 +1,5 @@
+import type { Controls, DataPoint, ModeKey } from "../models/digitalTwin";
+
 export interface EventItem {
   key: string;
   ts: number;
@@ -14,4 +16,19 @@ export interface ScenarioLogEntry {
   tm: string;       // строка времени
   kind: ScenarioLogKind;
   label: string;    // напр. "Перегрев", "Снимок состояния", "Сброс", "Heater 145%"
+}
+
+export interface SnapshotEntry {
+  ts: number;
+  label: string;
+  data: DataPoint[];
+  controls: Controls;
+  mode: ModeKey;
+  events: EventItem[];
+}
+
+export interface DecisionAction {
+  ts: number;
+  controls?: Controls;
+  mode?: ModeKey;
 }

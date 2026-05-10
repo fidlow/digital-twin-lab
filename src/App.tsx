@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { FORMULAS } from "./models/digitalTwin";
+import { DEFAULT_CONTROLS, FORMULAS } from "./models/digitalTwin";
 import { useSimulation } from "./hooks/useSimulation";
 import { useHotkeys } from "./hooks/useHotkeys";
 import { TheorySection } from "./components/TheorySection";
 import { ScenarioTimeline } from "./components/ScenarioTimeline";
+import { SnapshotControls } from "./components/SnapshotControls";
+import { ReplayControls } from "./components/ReplayControls";
 import { Tex } from "./components/Tex";
 import { TelemetryChart } from "./components/TelemetryChart";
 import { MetricCards } from "./components/MetricCards";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { HotkeysOverlay } from "./components/HotkeysOverlay";
+import { ForecastLegend } from "./components/ForecastLegend";
 import { PresenterProvider } from "./contexts/PresenterContext";
 
 export default function FTIDigitalTwinPrototype() {
@@ -23,9 +26,20 @@ export default function FTIDigitalTwinPrototype() {
     mode, setMode, running, setRunning, latest, controls, setControls,
     events, last, chart, fc, riskResult: r, ev, rec, reset, bumpIdle,
     log, snapshot,
+    snapshots, snapshotIndex, undo, redo, restoreSnapshot,
+    actions, replayActive, startReplay, stopReplay,
   } = sim;
 
   const [showHotkeys, setShowHotkeys] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [previewControls, setPreviewControls] = useState(controls);
+
+  useEffect(() => {
+    if (!previewMode) setPreviewControls(controls);
+  }, [previewMode, controls]);
+
+  const whatIfFc = previewMode ? sim.forecastWith(previewControls) : undefined;
+  const baselineFc = sim.forecastWith(DEFAULT_CONTROLS);
 
   useHotkeys({
     "1": () => setMode("normal"),
@@ -118,7 +132,10 @@ export default function FTIDigitalTwinPrototype() {
               </div>
             </div>
             <div className="h-[330px]">
-              <TelemetryChart rows={chart} fc={fc} running={running} last={last} />
+              <TelemetryChart rows={chart} fc={fc} whatIfFc={whatIfFc} baselineFc={baselineFc} running={running} last={last} />
+            </div>
+            <div className="mt-2">
+              <ForecastLegend showWhatIf={previewMode} />
             </div>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -147,10 +164,31 @@ export default function FTIDigitalTwinPrototype() {
             setMode={setMode}
             rec={rec}
             ev={ev}
+            previewMode={previewMode}
+            onPreviewToggle={setPreviewMode}
+            previewControls={previewControls}
+            onPreviewControls={setPreviewControls}
           />
         </section>
 
         <TheorySection />
+
+        <section className="grid gap-3 sm:grid-cols-2">
+          <SnapshotControls
+            snapshots={snapshots}
+            snapshotIndex={snapshotIndex}
+            onSnapshot={() => snapshot("Снимок состояния")}
+            onUndo={undo}
+            onRedo={redo}
+            onRestore={restoreSnapshot}
+          />
+          <ReplayControls
+            actions={actions}
+            replayActive={replayActive}
+            onStart={startReplay}
+            onStop={stopReplay}
+          />
+        </section>
 
         <section>
           <ScenarioTimeline log={log} onSnapshot={() => snapshot("Снимок состояния")} />

@@ -256,6 +256,28 @@ export function advice(mode: ModeKey, r: RiskResult): [string, string, string] {
   return ["Нестабильность питания или механики", "Ток нагрузки и вибрация показывают синхронные всплески.", "Отключить нагрузку, проверить источник питания, контакты и крепления."];
 }
 
+// ─── Веса вкладов в риск (для UI) ─────────────────────────────────────────────
+// Дополнительный helper поверх evidence(): нормализует scores в проценты,
+// возвращая массив для stacked-bar.
+export interface EvidenceWeight {
+  key: string;
+  label: string;
+  percent: number;
+  tone: RiskLevel;
+}
+
+export function evidenceWeights(ev: EvidenceResult): EvidenceWeight[] {
+  if (ev.score <= 0 || ev.factors.length === 0) return [];
+  const total = ev.factors.reduce((sum, f) => sum + f.score, 0);
+  if (total <= 0) return [];
+  return ev.factors.map((f) => ({
+    key: f.key,
+    label: f.label,
+    percent: rnd((f.score / total) * 100, 1),
+    tone: f.tone,
+  }));
+}
+
 // ─── Подготовка данных для графика ───────────────────────────────────────────
 
 export function build(rows: DataPoint[]): ChartDataPoint[] {
@@ -396,4 +418,14 @@ export function runTests() {
   const tickedThermalHot = appendTick(seedRows, "thermal", { heater: 1.6, cooling: 0 });
   const tickedThermalCool = appendTick(seedRows, "thermal", { heater: 0.6, cooling: 1 });
   console.assert(tickedThermalHot[N - 1]!.t > tickedThermalCool[N - 1]!.t, "appendTick respects controls in thermal mode");
+
+  // evidenceWeights — нормализация вкладов в проценты для UI
+  const evDriftAlarm = evidence({ ...n, s: -42 });
+  const weightsDrift = evidenceWeights(evDriftAlarm);
+  console.assert(weightsDrift.length > 0, "evidenceWeights returns factors when risky");
+  console.assert(weightsDrift[0]!.key === "s", "evidenceWeights preserves order from evidence()");
+  const totalPercent = weightsDrift.reduce((sum, w) => sum + w.percent, 0);
+  console.assert(Math.abs(totalPercent - 100) < 0.5, "evidenceWeights sum to ~100%");
+  const evNorm = evidence(n);
+  console.assert(evidenceWeights(evNorm).length === 0, "evidenceWeights empty for normal state");
 }
