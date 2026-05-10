@@ -135,7 +135,15 @@ export default function FTIDigitalTwinPrototype() {
             <DifficultyToggle value={difficulty} onChange={setDifficulty} />
           </div>
           <h1 className="text-3xl font-semibold sm:text-5xl">Цифровой двойник лабораторной установки</h1>
-          <p className="mt-4 max-w-3xl text-slate-300">Потоковая телеметрия, сценарии отказов, объяснимая диагностика и журнал событий.</p>
+          <p className="mt-4 max-w-3xl text-slate-200">
+            Вакуумная электротермическая камера для термических испытаний образцов:
+            низковольтный нагреватель (24 В) под контролем тока, поддержание вакуума,
+            наблюдение за температурой образца, вибрацией и измерительным каналом.
+          </p>
+          <p className="mt-2 max-w-3xl text-sm text-slate-400">
+            Двойник показывает потоковую телеметрию, прокручивает сценарии отказов,
+            объясняет диагностику и ведёт журнал событий.
+          </p>
         </header>
 
         {showOnboarding && (
