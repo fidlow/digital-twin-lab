@@ -1,4 +1,3 @@
-// src/components/EvidenceBar.tsx
 import { evidenceWeights, type EvidenceResult } from "../models/digitalTwin";
 
 interface EvidenceBarProps {
