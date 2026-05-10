@@ -80,7 +80,7 @@ export default function FTIDigitalTwinPrototype() {
     "4": () => setMode("signal"),
     "5": () => setMode("power"),
     Space: () => setRunning((x) => !x),
-    r: () => reset(),
+    "0": () => reset(),
     f: () => toggleKiosk(),
     "?": () => setShowHotkeys((x) => !x),
   });
