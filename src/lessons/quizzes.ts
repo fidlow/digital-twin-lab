@@ -6,9 +6,9 @@ export const QUIZZES: Quiz[] = [
     id: "thermal-action",
     prompt: "Сценарий «Перегрев», риск растёт. Что сделать в первую очередь?",
     options: [
-      { label: "Снизить мощность нагревателя", action: { kind: "setControls", controls: { heater: 0.6, cooling: 0 } }, outcome: "Помогает частично — внешний теплопоток остаётся." },
-      { label: "Включить охлаждение на максимум", action: { kind: "setControls", controls: { heater: 1, cooling: 1 } }, outcome: "Это правильный ход: охлаждение увеличивает β и компенсирует внешний поток." },
-      { label: "Подождать", action: { kind: "noop" }, outcome: "Плохая идея — температура продолжит расти." },
+      { label: "Снизить мощность", action: { kind: "setControls", controls: { heater: 0.6, cooling: 0 } }, outcome: "Правильно — уменьшаем источник тепла, риск падает." },
+      { label: "Повысить мощность", action: { kind: "setControls", controls: { heater: 1.4, cooling: 0 } }, outcome: "Антипаттерн: больше тока — больше нагрев, риск растёт быстрее." },
+      { label: "Повысить нагрузку", action: { kind: "setControls", controls: { heater: 1.2, cooling: 0 } }, outcome: "Не помогает: дополнительная нагрузка только усиливает перегрев." },
     ],
   },
   {
