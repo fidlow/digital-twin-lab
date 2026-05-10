@@ -233,7 +233,7 @@ export default function FTIDigitalTwinPrototype() {
         </section>
 
         <section>
-          <ScenarioTimeline log={log} onSnapshot={() => snapshot("Снимок состояния")} />
+          <ScenarioTimeline log={log} />
         </section>
 
         <section>

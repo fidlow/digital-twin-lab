@@ -8,27 +8,18 @@ const KIND_CHIP: Record<ScenarioLogEntry["kind"], { className: string; label: st
 
 interface ScenarioTimelineProps {
   log: ScenarioLogEntry[];
-  onSnapshot: () => void;
 }
 
-export function ScenarioTimeline({ log, onSnapshot }: ScenarioTimelineProps) {
+export function ScenarioTimeline({ log }: ScenarioTimelineProps) {
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Лента сценариев</h2>
-        <button
-          onClick={onSnapshot}
-          className="rounded-xl bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700"
-        >
-          📷 Снимок состояния
-        </button>
-      </div>
+      <h2 className="text-lg font-semibold">Лента сценариев</h2>
       <p className="mt-1 text-xs text-slate-500">
         История действий. Снимок — закладка, к которой можно вернуться обсудить.
       </p>
       {log.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-dashed p-5 text-sm text-slate-500">
-          Лента пуста. Переключи сценарий или нажми «Снимок состояния».
+          Лента пуста. Переключи сценарий или сделай снимок состояния.
         </p>
       ) : (
         <ol className="mt-4 space-y-2">
