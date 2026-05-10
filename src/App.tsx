@@ -156,23 +156,26 @@ export default function FTIDigitalTwinPrototype() {
         <MetricCards mode={mode} latest={latest} riskResult={r} ev={ev} onInfo={setExplanationKey} />
 
         <section className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
-          <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">Потоковая телеметрия</h2>
-                <p className="text-sm text-slate-500">Плавная лента: давление на графике масштабировано, в подсказке показаны реальные единицы.</p>
+          <div className="space-y-5">
+            <div className="rounded-3xl bg-white p-5 shadow-sm">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">Потоковая телеметрия</h2>
+                  <p className="text-sm text-slate-500">Плавная лента: давление на графике масштабировано, в подсказке показаны реальные единицы.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setRunning((x) => !x)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">{running ? "Пауза" : "Запуск"}</button>
+                  <button onClick={reset} className="rounded-xl bg-indigo-700 px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-800">Сброс</button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => setRunning((x) => !x)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">{running ? "Пауза" : "Запуск"}</button>
-                <button onClick={reset} className="rounded-xl bg-indigo-700 px-3 py-2 text-sm text-white shadow-sm hover:bg-indigo-800">Сброс</button>
+              <div className="h-[330px]">
+                <TelemetryChart rows={chart} fc={fc} whatIfFc={whatIfFc} baselineFc={baselineFc} running={running} last={last} />
+              </div>
+              <div className="mt-2">
+                <ForecastLegend showWhatIf={previewMode} onInfo={setExplanationKey} />
               </div>
             </div>
-            <div className="h-[330px]">
-              <TelemetryChart rows={chart} fc={fc} whatIfFc={whatIfFc} baselineFc={baselineFc} running={running} last={last} />
-            </div>
-            <div className="mt-2">
-              <ForecastLegend showWhatIf={previewMode} onInfo={setExplanationKey} />
-            </div>
+            <DiagnosticsCard rec={rec} ev={ev} />
           </div>
 
           <ControlsPanel
@@ -185,10 +188,6 @@ export default function FTIDigitalTwinPrototype() {
             previewControls={previewControls}
             onPreviewControls={setPreviewControls}
           />
-        </section>
-
-        <section>
-          <DiagnosticsCard rec={rec} ev={ev} />
         </section>
 
         <section>
