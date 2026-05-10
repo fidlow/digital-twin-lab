@@ -1,22 +1,17 @@
-// src/components/ControlsPanel.tsx
 import {
   CONTROL_LIMITS,
   DEFAULT_CONTROLS,
   SCENARIOS,
   type Controls,
-  type EvidenceResult,
   type ModeKey,
 } from "../models/digitalTwin";
 import { Slider } from "./Slider";
-import { EvidenceBar } from "./EvidenceBar";
 
 interface ControlsPanelProps {
   mode: ModeKey;
   controls: Controls;
   setControls: (next: Controls | ((prev: Controls) => Controls)) => void;
   setMode: (mode: ModeKey) => void;
-  rec: readonly [string, string, string];
-  ev: EvidenceResult;
   previewMode: boolean;
   onPreviewToggle: (preview: boolean) => void;
   previewControls: Controls;
@@ -24,7 +19,7 @@ interface ControlsPanelProps {
 }
 
 export function ControlsPanel({
-  mode, controls, setControls, setMode, rec, ev,
+  mode, controls, setControls, setMode,
   previewMode, onPreviewToggle, previewControls, onPreviewControls,
 }: ControlsPanelProps) {
   const shown = previewMode ? previewControls : controls;
@@ -92,18 +87,6 @@ export function ControlsPanel({
             valueTint="text-sky-700"
             ticks={["выкл", "50%", "макс"]}
           />
-        </div>
-      </div>
-
-      <div className="rounded-3xl bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">Диагностика</h2>
-        <div className="mt-3 rounded-2xl border bg-slate-50 p-4">
-          <p className="font-semibold">{rec[0]}</p>
-          <p className="mt-2 text-sm text-slate-600">{rec[1]}</p>
-          <p className="mt-3 rounded-xl bg-white p-3 text-sm font-medium">{rec[2]}</p>
-          <div className="mt-3">
-            <EvidenceBar ev={ev} />
-          </div>
         </div>
       </div>
 

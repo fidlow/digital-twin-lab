@@ -9,6 +9,7 @@ import { ReplayControls } from "./components/ReplayControls";
 import { TelemetryChart } from "./components/TelemetryChart";
 import { MetricCards } from "./components/MetricCards";
 import { ControlsPanel } from "./components/ControlsPanel";
+import { DiagnosticsCard } from "./components/DiagnosticsCard";
 import { HotkeysOverlay } from "./components/HotkeysOverlay";
 import { ForecastLegend } from "./components/ForecastLegend";
 import { LessonPicker } from "./components/LessonPicker";
@@ -172,6 +173,7 @@ export default function FTIDigitalTwinPrototype() {
             <div className="mt-2">
               <ForecastLegend showWhatIf={previewMode} onInfo={setExplanationKey} />
             </div>
+            <DiagnosticsCard rec={rec} ev={ev} />
           </div>
 
           <ControlsPanel
@@ -179,8 +181,6 @@ export default function FTIDigitalTwinPrototype() {
             controls={controls}
             setControls={setControls}
             setMode={setMode}
-            rec={rec}
-            ev={ev}
             previewMode={previewMode}
             onPreviewToggle={setPreviewMode}
             previewControls={previewControls}
