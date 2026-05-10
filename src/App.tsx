@@ -147,7 +147,7 @@ export default function FTIDigitalTwinPrototype() {
             <p className="text-base font-semibold">Как пользоваться демо</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div><b className="block text-indigo-700">1. Управление</b>Двигайте слайдеры мощности и охлаждения — реакция установки видна сразу.</div>
-              <div><b className="block text-indigo-700">2. Сценарии</b>Кнопки справа запускают типовые отказы. Двойник реагирует и объясняет причину.</div>
+              <div><b className="block text-indigo-700">2. Эмуляция отказа</b>Кнопки справа запускают типовые отказы. Двойник реагирует и объясняет причину.</div>
               <div><b className="block text-indigo-700">3. Прогноз</b>Полупрозрачные линии справа — экстраполяция модели на ~21 секунду вперёд.</div>
             </div>
           </div>

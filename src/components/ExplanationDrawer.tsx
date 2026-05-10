@@ -23,7 +23,7 @@ export function ExplanationDrawer({ openKey, onClose }: ExplanationDrawerProps) 
         </div>
         {exp.formula && (
           <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-            <Tex display wrap>{exp.formula}</Tex>
+            <Tex display>{exp.formula}</Tex>
           </div>
         )}
         <p className="mt-4 text-sm leading-6 text-slate-700">{exp.body}</p>
