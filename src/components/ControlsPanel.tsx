@@ -108,7 +108,7 @@ export function ControlsPanel({
       </div>
 
       <div className="rounded-3xl bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">Сценарии отказов</h2>
+        <h2 className="text-lg font-semibold">Эмуляция отказа</h2>
         <div className="mt-3 space-y-2">
           {(Object.entries(SCENARIOS) as [ModeKey, readonly [string, string]][]).map(([key, [name, desc]]) => (
             <button
