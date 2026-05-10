@@ -7,6 +7,8 @@ export interface LessonHostApi {
   setMode: (mode: ModeKey) => void;
   setControls: (next: Controls) => void;
   setPreview: (on: boolean) => void;
+  pause: () => void;
+  resume: () => void;
   getRisk: () => number;
   getTemperature: () => number;
 }
@@ -61,6 +63,7 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
       else if (cond.kind === "tempAtLeast") ready = hostRef.current.getTemperature() >= cond.threshold;
       if (ready) {
         setAwaitingNext(true);
+        hostRef.current.pause();
         clearInterval(id);
       }
     }, 250);
@@ -76,12 +79,14 @@ export function useLessonRunner(host: LessonHostApi): UseLessonRunnerResult {
   const next = useCallback(() => {
     if (!activeLesson) return;
     setStepIndex((i) => Math.min(i + 1, activeLesson.steps.length));
+    hostRef.current.resume();
   }, [activeLesson]);
 
   const stop = useCallback(() => {
     setActiveLesson(null);
     setStepIndex(0);
     setAwaitingNext(false);
+    hostRef.current.resume();
   }, []);
 
   return { activeLesson, stepIndex, totalSteps, awaitingNext, start, next, stop };

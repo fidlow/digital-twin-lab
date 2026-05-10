@@ -53,6 +53,8 @@ export default function FTIDigitalTwinPrototype() {
     setMode: sim.setMode,
     setControls: (next) => sim.setControls(next),
     setPreview: setPreviewMode,
+    pause: () => sim.setRunning(false),
+    resume: () => sim.setRunning(true),
     getRisk: () => sim.ev.score,
     getTemperature: () => sim.latest.t,
   });
@@ -62,6 +64,8 @@ export default function FTIDigitalTwinPrototype() {
       setMode: sim.setMode,
       setControls: (next) => sim.setControls(next),
       setPreview: setPreviewMode,
+      pause: () => sim.setRunning(false),
+      resume: () => sim.setRunning(true),
       getRisk: () => sim.ev.score,
       getTemperature: () => sim.latest.t,
     },
